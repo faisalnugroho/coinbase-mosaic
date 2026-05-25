@@ -212,14 +212,17 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     const handleWheel = (e: WheelEvent) => { e.preventDefault(); setZoom(tRef.current.target * (e.deltaY > 0 ? 0.88 : 1.12)); };
 
     // ── Mouse: window-level mousemove/mouseup so drags survive leaving the canvas ──
+    let mouseDownTime = 0;
+    let mouseMaxDist = 0;
     const handleMouseDown = (e: MouseEvent) => {
       velRef.current = { x: 0, y: 0 };
       dragRef.current = { a: true, sx: e.clientX, sy: e.clientY, px: tRef.current.x, py: tRef.current.y };
       lastRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+      mouseDownTime = performance.now();
+      mouseMaxDist = 0;
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     };
-    let mouseMaxDist = 0;
     const handleMouseMove = (e: MouseEvent) => {
       const pos = screenToGrid(e.clientX, e.clientY);
       hovRef.current = (pos && isLogoPixel(pos.x, pos.y)) ? { x: pos.x, y: pos.y } : null;
@@ -234,7 +237,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         velRef.current = { x: e.clientX - lastRef.current.x, y: e.clientY - lastRef.current.y };
         lastRef.current = { x: e.clientX, y: e.clientY, t: n };
       }
-      // Track maximum distance from drag origin (for click vs drag discrimination)
+      // Track maximum distance from drag origin
       const dist = Math.sqrt((e.clientX - dragRef.current.sx) ** 2 + (e.clientY - dragRef.current.sy) ** 2);
       if (dist > mouseMaxDist) mouseMaxDist = dist;
       tRef.current.x = dragRef.current.px + (e.clientX - dragRef.current.sx);
@@ -245,9 +248,10 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       window.removeEventListener('mouseup', handleMouseUp);
       if (!dragRef.current.a) return;
       dragRef.current.a = false;
-      // Use max distance travelled during the entire drag — prevents accidental clicks
-      // when returning near the start after a large pan
-      if (mouseMaxDist < 10) {
+      // Click = quick press (< 300ms) AND small movement (< 16px max).
+      // Slow exploration (long hold) never accidentally clicks, even without moving.
+      const duration = performance.now() - mouseDownTime;
+      if (duration < 300 && mouseMaxDist < 16) {
         velRef.current = { x: 0, y: 0 };
         const pos = screenToGrid(e.clientX, e.clientY);
         if (pos && isLogoPixel(pos.x, pos.y)) {
@@ -255,7 +259,6 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
           onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
         }
       }
-      mouseMaxDist = 0;
     };
 
     // ── Touch: single-finger pan + two-finger pinch zoom ──
@@ -263,6 +266,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     let touchStartX = 0, touchStartY = 0;
     let touchStartPanX = 0, touchStartPanY = 0;
     let lastTouchX = 0, lastTouchY = 0;
+    let touchStartTime = 0;
     let touchMaxDist = 0;
     let pinchDist = 0;
     let isTouching = false;
@@ -276,6 +280,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         touchStartY = lastTouchY = t.clientY;
         touchStartPanX = tRef.current.x;
         touchStartPanY = tRef.current.y;
+        touchStartTime = performance.now();
         touchMaxDist = 0;
         dragRef.current.a = true;
         velRef.current = { x: 0, y: 0 };
@@ -319,9 +324,10 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         isTouching = false;
         if (dragRef.current.a && touchId !== null) {
           dragRef.current.a = false;
-          // Use max distance travelled — prevents tap detection during a pan
-          if (touchMaxDist < 16) {
-            // It was a tap — handle as click
+          // Tap = quick press (< 350ms) AND small movement (< 24px max).
+          // Slow exploration never accidentally taps.
+          const duration = performance.now() - touchStartTime;
+          if (duration < 350 && touchMaxDist < 24) {
             const pos = screenToGrid(lastTouchX, lastTouchY);
             if (pos && isLogoPixel(pos.x, pos.y)) {
               addRipple(pos.x, pos.y);
@@ -330,6 +336,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
           }
         }
         touchId = null;
+        touchStartTime = 0;
         touchMaxDist = 0;
         pinchDist = 0;
       } else if (e.touches.length === 1) {
@@ -340,6 +347,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         touchStartY = lastTouchY = t.clientY;
         touchStartPanX = tRef.current.x;
         touchStartPanY = tRef.current.y;
+        touchStartTime = performance.now();
         touchMaxDist = 0;
         dragRef.current.a = true;
         velRef.current = { x: 0, y: 0 };
