@@ -1,7 +1,8 @@
 'use client';
-// Mosaic — A permanent digital monument built by humans online.
+// Mosaic — 3-cycle design iteration final version
+// Designer + Critic + Engineer = polished premium digital monument
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase, Pixel } from '@/lib/supabase';
 import { isLogoPixel, TOTAL_LOGO_PIXELS } from '@/lib/logo-mask';
 import { fetchPixels, claimPixel } from '@/lib/pixels';
@@ -10,6 +11,11 @@ import { generateUserId, getGravatarUrl } from '@/lib/utils';
 import MosaicCanvas from '@/components/MosaicCanvas';
 import LoginModal, { UserData } from '@/components/LoginModal';
 import ClaimModal from '@/components/ClaimModal';
+
+// Icon components for How It Works
+const IconConnect = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>);
+const IconChoose = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59"/></svg>);
+const IconBecome = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>);
 
 export default function Home() {
   const [pixels, setPixels] = useState<Map<string, Pixel>>(new Map());
@@ -24,10 +30,10 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState<{ username: string; display_name: string; profile_pic_url: string }[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [showAllFeed, setShowAllFeed] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
-  // Scroll reveal
   useEffect(() => {
-    const obs = new IntersectionObserver(entries => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.1 });
+    const obs = new IntersectionObserver(entries => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.08 });
     document.querySelectorAll('.reveal-on-scroll').forEach(el => obs.observe(el));
     return () => obs.disconnect();
   }, []);
@@ -37,14 +43,11 @@ export default function Home() {
   const loadPixels = async () => {
     try {
       const m = await fetchPixels(supabase); setPixels(m); setClaimedCount(m.size);
-      // Build leaderboard
-      const lb: { username: string; display_name: string; profile_pic_url: string }[] = [];
-      m.forEach(p => { if (p.username && p.display_name) lb.push({ username: p.username, display_name: p.display_name, profile_pic_url: p.profile_pic_url || '' }); });
+      const lb: any[] = []; m.forEach(p => { if (p.username && p.display_name) lb.push({ username: p.username, display_name: p.display_name, profile_pic_url: p.profile_pic_url || '' }); });
       setLeaderboard(lb.slice(0, 12));
-      // Last 10 claims for feed
-      const sorted = Array.from(m.values()).filter(p => p.claimed_at).sort((a, b) => new Date(b.claimed_at!).getTime() - new Date(a.claimed_at!).getTime());
-      setLiveFeed(sorted.slice(0, 10).map(p => ({ username: p.username || 'unknown', time: p.claimed_at! })));
-      setRecentClaims(sorted.slice(0, 5).map(p => ({ username: p.username || 'unknown', x: p.x, y: p.y })));
+      const s = Array.from(m.values()).filter(p => p.claimed_at).sort((a, b) => new Date(b.claimed_at!).getTime() - new Date(a.claimed_at!).getTime());
+      setLiveFeed(s.slice(0, 10).map(p => ({ username: p.username || 'unknown', time: p.claimed_at! })));
+      setRecentClaims(s.slice(0, 5).map(p => ({ username: p.username || 'unknown', x: p.x, y: p.y })));
     } catch (e) { console.error(e); }
   };
 
@@ -58,17 +61,17 @@ export default function Home() {
   }, [user, pixels]);
 
   const handleClaim = async (msg: string) => {
-    if (!user || !selectedPixel) return;
+    if (!user || !selectedPixel || claiming) return;
+    setClaiming(true);
     try {
       const p = await claimPixel(supabase, selectedPixel.x, selectedPixel.y, user.user_id, user.username, user.display_name, user.profile_pic_url, msg);
-      setPixels(prev => new Map(prev).set(`${p.x},${p.y}`, p));
-      setClaimedCount(c => c + 1);
+      setPixels(prev => new Map(prev).set(`${p.x},${p.y}`, p)); setClaimedCount(c => c + 1);
       setRecentClaims(prev => [{ username: user.username, x: p.x, y: p.y }, ...prev].slice(0, 5));
       setLiveFeed(prev => [{ username: user.username, time: new Date().toISOString() }, ...prev].slice(0, 12));
       setShowClaim(false); setSelectedPixel(null);
       setConfetti(true); setTimeout(() => setConfetti(false), 2500);
       loadPixels();
-    } catch (e: any) { throw e; }
+    } catch (e: any) { throw e; } finally { setClaiming(false); }
   };
 
   const remaining = TOTAL_LOGO_PIXELS - claimedCount;
@@ -77,149 +80,179 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#030611] text-[#f0f3fa]">
       {/* CONFETTI */}
-      {confetti && <div className="fixed inset-0 pointer-events-none z-[200]">{[...Array(50)].map((_, i) => <div key={i} className="absolute w-2 h-2 rounded-sm" style={{ left: `${Math.random()*100}%`, top: '-5%', background: ['#0052FF','#00b4d8','#7C3AED','#f0f3fa'][i%4], animation: `drift ${1.5+Math.random()*2}s ease-out forwards`, '--dx': `${(Math.random()-0.5)*200}px`, '--dy': `${200+Math.random()*300}px` } as any} />)}</div>}
+      {confetti && <div className="fixed inset-0 pointer-events-none z-[200]">{[...Array(50)].map((_, i) => <div key={i} className="absolute w-2 h-2 rounded-sm" style={{ left: `${Math.random()*100}%`, top: '-5%', background: ['#0052FF','#00b4d8','#fff','#7C3AED'][i%4], animation: `drift ${1.5+Math.random()*2}s ease-out forwards`, '--dx': `${(Math.random()-0.5)*200}px`, '--dy': `${200+Math.random()*300}px` } as any} />)}</div>}
 
-      {/* NAV */}
-      <nav className="sticky top-0 z-50 bg-[#030611]/75 backdrop-blur-2xl border-b border-white/[0.03]">
+      {/* ===== NAVBAR ===== */}
+      <nav className="sticky top-0 z-50 bg-[#030611]/80 backdrop-blur-2xl border-b border-white/[0.03]" role="navigation" aria-label="Main navigation">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0052FF] to-[#00b4d8] flex items-center justify-center text-white font-bold text-[11px]">M</div>
-            <span className="text-white/40 text-xs tracking-wide hidden sm:inline">community mosaic</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0052FF] to-[#00b4d8] flex items-center justify-center text-white font-bold text-[11px] shadow-[0_0_12px_rgba(0,82,255,0.3)]" aria-hidden="true">M</div>
+            <div className="hidden sm:flex items-center gap-5">
+              <a href="#canvas" className="text-white/40 hover:text-white text-[13px] transition-colors font-medium">Canvas</a>
+              <a href="#how" className="text-white/40 hover:text-white text-[13px] transition-colors font-medium">How It Works</a>
+              <a href="#activity" className="text-white/40 hover:text-white text-[13px] transition-colors font-medium">Activity</a>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-white/25 text-[11px] tabular-nums">{claimedCount.toLocaleString()} pixels</span>
-            <button onClick={() => setShowLogin(true)} className="bg-[#0052FF] text-white text-xs font-semibold px-4 h-8 rounded-full hover:bg-[#0039b3] transition-all glow-sm flex items-center gap-1.5">
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/></svg>Claim Pixel
+          <div className="flex items-center gap-3">
+            <span className="text-white/25 text-[12px] tabular-nums hidden sm:inline">{claimedCount.toLocaleString()} claimed</span>
+            <button onClick={() => setShowLogin(true)} className="bg-[#0052FF] text-white text-[13px] font-semibold px-5 h-9 rounded-full hover:bg-[#0039b3] transition-all glow-sm flex items-center gap-1.5" aria-label="Connect X to claim your pixel">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/></svg>
+              Claim Pixel
             </button>
           </div>
         </div>
       </nav>
 
-      {/* HERO */}
-      <section className="relative px-5 pt-20 pb-8 text-center max-w-3xl mx-auto overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#0052FF]/5 blur-[120px]" />
+      {/* ===== HERO ===== */}
+      <section className="relative px-5 pt-16 pb-4 text-center max-w-3xl mx-auto overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#0052FF]/4 blur-[140px]" />
+          <div className="absolute top-1/3 left-1/4 w-[300px] h-[300px] rounded-full bg-[#00b4d8]/3 blur-[100px]" />
         </div>
-        <h1 className="relative text-[38px] sm:text-[52px] font-extrabold leading-[1.08] tracking-[-0.03em] reveal">
-          <span className="text-gradient">One Account.<br />One Pixel.<br />One Place in History.</span>
+        <h1 className="relative text-[40px] sm:text-[54px] font-extrabold leading-[1.06] tracking-[-0.03em] reveal">
+          <span className="text-gradient">One Account.</span><br />
+          <span className="text-gradient">One Pixel.</span><br />
+          <span className="text-gradient">One Place in History.</span>
         </h1>
-        <p className="text-[#5c6880] text-base mt-5 max-w-lg mx-auto leading-relaxed reveal r1">
-          Every connected profile becomes part of a living digital monument —<br />built in realtime by thousands of humans.
+        <p className="text-[#5c6880] text-[15px] sm:text-base mt-5 max-w-md mx-auto leading-relaxed reveal r1">
+          Every connected profile becomes part of a living digital monument — built in realtime by thousands of humans.
         </p>
-        <div className="flex items-center justify-center gap-3 mt-8 reveal r2">
-          <button onClick={() => setShowLogin(true)} className="bg-[#0052FF] text-white font-semibold px-6 py-3 rounded-full hover:bg-[#0039b3] transition-all text-sm glow flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/></svg>Claim Your Pixel
+        <div className="flex items-center justify-center gap-3 mt-7 reveal r2">
+          <button onClick={() => setShowLogin(true)} disabled={claiming}
+            className="bg-[#0052FF] text-white font-semibold px-7 py-3.5 rounded-full hover:bg-[#0039b3] disabled:opacity-60 disabled:cursor-not-allowed transition-all text-sm glow flex items-center gap-2" aria-label="Connect X to claim your permanent pixel">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/></svg>
+            Claim Your Pixel
           </button>
-          <a href="#canvas" className="text-[#5c6880] hover:text-white text-sm font-medium px-5 py-3 transition-colors">Explore →</a>
+          <a href="#canvas" className="text-[#5c6880] hover:text-white text-sm font-medium px-4 py-3.5 transition-colors">Explore →</a>
         </div>
-
-        {/* Stats row */}
-        <div className="flex items-center justify-center gap-8 mt-10 reveal r3">
-          {[
-            { v: claimedCount.toLocaleString(), l: 'Claimed' },
-            { v: remaining.toLocaleString(), l: 'Available' },
-            { v: `${pct}%`, l: 'Complete' },
-          ].map((s, i) => (
-            <div key={i} className="text-center">
-              <div className="text-white text-2xl font-bold tabular-nums">{s.v}</div>
-              <div className="text-[#5c6880] text-[11px] uppercase tracking-wider mt-0.5">{s.l}</div>
-            </div>
+        <div className="flex items-center justify-center gap-10 mt-8 reveal r3">
+          {[{ v: claimedCount.toLocaleString(), l: 'Claimed' }, { v: remaining.toLocaleString(), l: 'Available' }, { v: `${pct}%`, l: 'Complete' }].map((s, i) => (
+            <div key={i} className="text-center"><div className="text-white text-[26px] font-bold tabular-nums">{s.v}</div><div className="text-[#5c6880] text-[11px] uppercase tracking-[0.12em] font-medium mt-0.5">{s.l}</div></div>
           ))}
         </div>
       </section>
 
-      {/* CANVAS */}
-      <section id="canvas" className="px-3 py-6 max-w-[700px] mx-auto">
+      {/* ===== CANVAS ===== */}
+      <section id="canvas" className="px-3 py-8 max-w-[700px] mx-auto reveal-on-scroll">
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#00b4d8] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#00b4d8] animate-pulse" aria-hidden="true" />
             <span className="text-[#00b4d8] text-[11px] font-semibold uppercase tracking-wider">Live</span>
-            <span className="text-white/15 text-[10px]">{pct}% complete</span>
+            <span className="text-white/15 text-[10px] tabular-nums">{pct}% complete</span>
           </div>
-          <span className="text-white/20 text-[10px]">{TOTAL_LOGO_PIXELS.toLocaleString()} pixels total</span>
+          <span className="text-white/15 text-[10px] tabular-nums">{TOTAL_LOGO_PIXELS.toLocaleString()} pixels</span>
         </div>
-        <div className="relative aspect-square w-full glass overflow-hidden border border-[#0052FF]/10 glow">
+        <div className="relative aspect-square w-full glass overflow-hidden border border-[#0052FF]/8 glow">
           <MosaicCanvas pixels={pixels} onPixelClick={handlePixelClick} recentClaims={recentClaims} />
         </div>
-        <p className="text-center text-white/15 text-[11px] mt-3">Drag to explore · Scroll to zoom · Tap a pixel to claim</p>
+        <p className="text-center text-white/12 text-[11px] mt-3 font-medium">Drag to explore · Scroll to zoom · Tap a glowing pixel to claim</p>
       </section>
 
-      {/* LIVE FEED */}
-      <section className="px-5 py-8 max-w-3xl mx-auto">
+      {/* ===== LIVE FEED ===== */}
+      <section id="activity" className="px-5 py-8 max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-sm font-bold uppercase tracking-wider">Live Activity</h2>
-          {liveFeed.length > 5 && <button onClick={() => setShowAllFeed(!showAllFeed)} className="text-[#5c6880] hover:text-white text-xs transition-colors">{showAllFeed ? 'Show less' : 'View all'}</button>}
+          <h2 className="text-white/80 text-[13px] font-bold uppercase tracking-[0.12em]">Activity</h2>
+          {liveFeed.length > 5 && (
+            <button onClick={() => setShowAllFeed(!showAllFeed)} className="text-[#5c6880] hover:text-white text-xs transition-colors">{showAllFeed ? 'Show less' : `View all ${liveFeed.length}`}</button>
+          )}
         </div>
-        <div className="space-y-1.5">
-          {(showAllFeed ? liveFeed : liveFeed.slice(0, 5)).map((f, i) => (
-            <div key={i} className="flex items-center gap-3 glass px-4 py-2.5 reveal-on-scroll" style={{ transitionDelay: `${i * 50}ms` }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00b4d8] flex-shrink-0" />
-              <span className="text-white/70 text-xs"><span className="text-white font-semibold">@{f.username}</span> joined the mosaic</span>
-              <span className="text-[#5c6880] text-[10px] ml-auto flex-shrink-0">{new Date(f.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          ))}
-        </div>
+        {liveFeed.length > 0 ? (
+          <div className="space-y-1">
+            {(showAllFeed ? liveFeed : liveFeed.slice(0, 5)).map((f, i) => (
+              <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl reveal-on-scroll transition-colors ${i % 2 === 0 ? 'bg-white/[0.015]' : ''}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00b4d8] flex-shrink-0" aria-hidden="true" />
+                <span className="text-white/60 text-[13px]"><span className="text-white font-semibold">@{f.username}</span> joined the mosaic</span>
+                <span className="text-[#5c6880] text-[11px] ml-auto flex-shrink-0 tabular-nums">{new Date(f.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass px-6 py-8 text-center">
+            <p className="text-[#5c6880] text-[13px]">No one has claimed a pixel yet. <button onClick={() => setShowLogin(true)} className="text-[#0052FF] hover:text-[#00b4d8] transition-colors font-semibold underline underline-offset-4">Be the first.</button></p>
+          </div>
+        )}
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="px-5 py-12 max-w-3xl mx-auto">
-        <h2 className="text-white text-lg font-bold text-center reveal-on-scroll mb-10">How It Works</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* ===== HOW IT WORKS ===== */}
+      <section id="how" className="px-5 py-12 max-w-3xl mx-auto">
+        <h2 className="text-white/80 text-[13px] font-bold uppercase tracking-[0.12em] text-center mb-8 reveal-on-scroll">How It Works</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { step: '01', title: 'Connect', desc: 'Sign in with your X account. One click. Your profile is loaded automatically.' },
-            { step: '02', title: 'Choose', desc: 'Explore the mosaic. Find an empty pixel that calls to you. Claim your place.' },
-            { step: '03', title: 'Become', desc: 'Your profile becomes part of the monument. Permanent. Visible to everyone. Forever.' },
+            { step: '01', icon: <IconConnect />, title: 'Connect', desc: 'Sign in with X. One click. Your profile is loaded.' },
+            { step: '02', icon: <IconChoose />, title: 'Choose', desc: 'Find an empty pixel. Claim your permanent place.' },
+            { step: '03', icon: <IconBecome />, title: 'Become', desc: 'Your profile becomes internet history. Visible forever.' },
           ].map((s, i) => (
-            <div key={i} className="glass p-6 reveal-on-scroll" style={{ transitionDelay: `${i * 0.1}s` }}>
-              <div className="text-[#0052FF] text-[11px] font-bold mb-3">{s.step}</div>
+            <div key={i} className="glass p-6 reveal-on-scroll hover:border-[#0052FF]/15 transition-all duration-500 group relative" style={{ transitionDelay: `${i * 0.1}s` }}>
+              <div className="text-[#0052FF]/40 text-[10px] font-bold mb-3 tracking-wider">{s.step}</div>
+              <div className="text-[#0052FF] mb-3 group-hover:text-[#00b4d8] transition-colors">{s.icon}</div>
               <h3 className="text-white font-bold text-sm mb-2">{s.title}</h3>
-              <p className="text-[#5c6880] text-xs leading-relaxed">{s.desc}</p>
+              <p className="text-[#5c6880] text-[13px] leading-relaxed">{s.desc}</p>
+              {i < 2 && <div className="hidden sm:block absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-px bg-gradient-to-r from-[#0052FF]/30 to-transparent" aria-hidden="true" />}
             </div>
           ))}
         </div>
       </section>
 
-      {/* LEADERBOARD */}
+      {/* ===== LEADERBOARD ===== */}
       {leaderboard.length > 0 && (
         <section className="px-5 py-10 max-w-3xl mx-auto">
-          <h2 className="text-white text-lg font-bold text-center reveal-on-scroll mb-6">Early Contributors</h2>
+          <h2 className="text-white/80 text-[13px] font-bold uppercase tracking-[0.12em] text-center mb-6 reveal-on-scroll">Early Contributors</h2>
           <div className="flex flex-wrap justify-center gap-2">
             {leaderboard.map((c, i) => (
-              <div key={i} className="glass px-3 py-2 flex items-center gap-2 reveal-on-scroll" style={{ transitionDelay: `${i * 40}ms` }}>
-                <img src={c.profile_pic_url} alt="" className="w-6 h-6 rounded-full object-cover" onError={e => (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>'} />
-                <span className="text-white/70 text-xs">@{c.username}</span>
+              <div key={i} className="glass px-3.5 py-2 flex items-center gap-2 reveal-on-scroll hover:border-[#0052FF]/20 transition-all" style={{ transitionDelay: `${i * 40}ms` }}>
+                <img src={c.profile_pic_url} alt={`@${c.username}`} className="w-6 h-6 rounded-full object-cover ring-1 ring-white/5" onError={e => (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>'} />
+                <span className="text-white/60 text-[13px] font-medium">@{c.username}</span>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* FOOTER */}
-      <footer className="px-5 py-14 max-w-3xl mx-auto text-center border-t border-white/[0.03]">
-        <div className="text-white/20 text-xs mb-4">A permanent digital monument built by the internet community.</div>
-        <div className="flex justify-center gap-6 mb-6">
-          <a href="/about" className="text-white/25 hover:text-white/50 text-xs transition-colors">About</a>
-          <a href="/faq" className="text-white/25 hover:text-white/50 text-xs transition-colors">FAQ</a>
-          <a href="https://x.com/Zkfync" target="_blank" rel="noopener" className="text-white/25 hover:text-white/50 text-xs transition-colors">@Zkfync</a>
+      {/* ===== EARLY ADOPTER EMPTY STATE ===== */}
+      {liveFeed.length === 0 && (
+        <section className="px-5 py-8 max-w-3xl mx-auto reveal-on-scroll">
+          <div className="glass p-8 text-center border-[#0052FF]/10">
+            <div className="text-4xl mb-4">🟦</div>
+            <h3 className="text-white font-bold text-lg mb-2">Be an Early Contributor</h3>
+            <p className="text-[#5c6880] text-sm max-w-xs mx-auto mb-4">The first pixels will be remembered forever. Claim your place before the mosaic fills up.</p>
+            <button onClick={() => setShowLogin(true)} className="inline-flex bg-[#0052FF] text-white font-semibold px-5 py-2.5 rounded-full hover:bg-[#0039b3] transition-all text-sm glow-sm">Claim Your Pixel</button>
+          </div>
+        </section>
+      )}
+
+      {/* ===== FOOTER ===== */}
+      <footer className="px-5 py-14 max-w-3xl mx-auto text-center border-t border-white/[0.03]" role="contentinfo">
+        <div className="flex items-center justify-center gap-2 mb-5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0052FF] to-[#00b4d8] flex items-center justify-center text-white font-bold text-[10px]" aria-hidden="true">M</div>
+          <span className="text-white/25 text-xs">community mosaic</span>
         </div>
-        <p className="text-white/06 text-[10px] italic">Community art project. Not affiliated with Coinbase, Inc.</p>
+        <div className="text-white/20 text-[13px] mb-4">A permanent digital monument built by the internet community.</div>
+        <div className="flex justify-center gap-7 mb-6">
+          <a href="/about" className="text-white/25 hover:text-white/50 text-[13px] transition-colors font-medium">About</a>
+          <a href="/faq" className="text-white/25 hover:text-white/50 text-[13px] transition-colors font-medium">FAQ</a>
+          <a href="https://x.com/Zkfync" target="_blank" rel="noopener noreferrer" className="text-white/25 hover:text-white/50 text-[13px] transition-colors font-medium">@Zkfync</a>
+        </div>
+        <p className="text-white/06 text-[11px] italic max-w-xs mx-auto leading-relaxed">Community art project inspired by Coinbase. Not affiliated with Coinbase, Inc.</p>
       </footer>
 
-      {/* PIXEL DETAIL MODAL */}
+      {/* ===== PIXEL DETAIL MODAL ===== */}
       {selectedClaimedPixel && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setSelectedClaimedPixel(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setSelectedClaimedPixel(null)} role="dialog" aria-modal="true" aria-label="Pixel details">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
           <div className="relative w-full sm:max-w-sm mx-4 mb-4 sm:mb-0 glass p-6 fade-scale z-10" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-end mb-2"><button onClick={() => setSelectedClaimedPixel(null)} className="text-white/20 hover:text-white/60 text-lg">×</button></div>
-            <div className="text-center">
+            <button onClick={() => setSelectedClaimedPixel(null)} className="absolute top-4 right-4 text-white/20 hover:text-white/60 text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/[0.04] transition-all" aria-label="Close">×</button>
+            <div className="text-center pt-2">
               <div className="text-white/25 text-xs mb-3 font-mono">Pixel #{selectedClaimedPixel.x},{selectedClaimedPixel.y}</div>
-              <img src={selectedClaimedPixel.pixel.profile_pic_url || ''} alt="" className="w-20 h-20 rounded-full object-cover ring-2 ring-[#0052FF]/25 mx-auto mb-4" onError={e => (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>'} />
+              <div className="relative inline-block mb-4">
+                <img src={selectedClaimedPixel.pixel.profile_pic_url || ''} alt={`@${selectedClaimedPixel.pixel.username}`} className="w-20 h-20 rounded-full object-cover ring-2 ring-[#0052FF]/25" onError={e => (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>'} />
+                <div className="absolute inset-0 rounded-full blur-xl bg-[#0052FF]/10 -z-10" />
+              </div>
               <div className="text-white font-bold text-lg">{selectedClaimedPixel.pixel.display_name}</div>
               <div className="text-[#5c6880] text-sm">@{selectedClaimedPixel.pixel.username}</div>
               {selectedClaimedPixel.pixel.message && <p className="text-white/50 text-sm italic mt-3">&ldquo;{selectedClaimedPixel.pixel.message}&rdquo;</p>}
               {selectedClaimedPixel.pixel.claimed_at && <div className="text-white/20 text-xs mt-2">{new Date(selectedClaimedPixel.pixel.claimed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>}
               <div className="flex gap-2.5 mt-5">
-                <a href={`https://x.com/${selectedClaimedPixel.pixel.username}`} target="_blank" rel="noopener" className="flex-1 glass py-2.5 text-white/50 hover:text-white/70 text-xs transition-all rounded-xl">View on X</a>
+                <a href={`https://x.com/${selectedClaimedPixel.pixel.username}`} target="_blank" rel="noopener noreferrer" className="flex-1 glass py-2.5 text-white/50 hover:text-white/70 text-xs transition-all rounded-xl">View on X</a>
                 <button onClick={() => { const url = typeof window !== 'undefined' ? window.location.origin : ''; window.open(`https://x.com/intent/tweet?text=${encodeURIComponent('I claimed my place in the Mosaic. 🟦\n\nJoin me:')}&url=${encodeURIComponent(url)}`, '_blank'); }} className="flex-1 bg-[#0052FF] hover:bg-[#0039b3] rounded-xl py-2.5 text-white text-xs font-semibold transition-all glow-sm">Share</button>
               </div>
             </div>
@@ -227,9 +260,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODALS */}
+      {/* ===== MODALS ===== */}
       <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} onLogin={(u: UserData) => { setUser(u); setShowLogin(false); if (selectedPixel) setShowClaim(true); }} />
-      {selectedPixel && user && <ClaimModal isOpen={showClaim} onClose={() => setShowClaim(false)} onClaim={handleClaim} user={user} x={selectedPixel.x} y={selectedPixel.y} />}
+      {selectedPixel && user && <ClaimModal isOpen={showClaim} onClose={() => { setShowClaim(false); setClaiming(false); }} onClaim={handleClaim} user={user} x={selectedPixel.x} y={selectedPixel.y} />}
     </div>
   );
 }
