@@ -27,7 +27,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, claimedCount }: Pro
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const ripId = useRef(0);
 
-  const tRef = useRef({ x: 0, y: 0, scale: 2.0, targetScale: 2.0 }); // default 100% = scale 2
+  const tRef = useRef({ x: 0, y: 0, scale: 1.0, targetScale: 1.0 }); // default 50% = scale 1, shows full circle
   const dragRef = useRef({ active: false, sx: 0, sy: 0, px: 0, py: 0 });
   const velRef = useRef({ x: 0, y: 0 });
   const lastRef = useRef({ x: 0, y: 0, t: 0 });
@@ -103,7 +103,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, claimedCount }: Pro
     const diff = tRef.current.targetScale - tRef.current.scale;
     if (Math.abs(diff) < 0.003) tRef.current.scale = tRef.current.targetScale;
     else tRef.current.scale += diff * 0.12;
-    setZoomPct(Math.round(tRef.current.scale * 50)); // scale 2 = 100%
+    setZoomPct(Math.round(tRef.current.scale * 50)); // scale 1 = 50%
 
     const { x: px, y: py, scale } = tRef.current;
     const cont = containerRef.current; if (!cont) return;
@@ -353,7 +353,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, claimedCount }: Pro
           <span className="text-white/40 text-[11px] min-w-[42px] text-center font-medium tabular-nums">{zoomPct}%</span>
           <button onClick={() => setZoom(tRef.current.targetScale + 0.3)} className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white text-sm rounded-full hover:bg-white/[0.04] transition-colors">+</button>
           <div className="w-px h-4 bg-white/[0.06]" />
-          <button onClick={() => { tRef.current.targetScale = 2; tRef.current.x = 0; tRef.current.y = 0; }} className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white text-[11px] rounded-full hover:bg-white/[0.04] transition-colors font-medium">⊡</button>
+          <button onClick={() => { tRef.current.targetScale = 1; tRef.current.x = 0; tRef.current.y = 0; }} className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white text-[11px] rounded-full hover:bg-white/[0.04] transition-colors font-medium">⊡</button>
         </div>
       </div>
 
