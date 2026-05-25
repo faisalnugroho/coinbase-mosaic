@@ -219,6 +219,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     };
+    let mouseMaxDist = 0;
     const handleMouseMove = (e: MouseEvent) => {
       const pos = screenToGrid(e.clientX, e.clientY);
       hovRef.current = (pos && isLogoPixel(pos.x, pos.y)) ? { x: pos.x, y: pos.y } : null;
@@ -233,6 +234,9 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         velRef.current = { x: e.clientX - lastRef.current.x, y: e.clientY - lastRef.current.y };
         lastRef.current = { x: e.clientX, y: e.clientY, t: n };
       }
+      // Track maximum distance from drag origin (for click vs drag discrimination)
+      const dist = Math.sqrt((e.clientX - dragRef.current.sx) ** 2 + (e.clientY - dragRef.current.sy) ** 2);
+      if (dist > mouseMaxDist) mouseMaxDist = dist;
       tRef.current.x = dragRef.current.px + (e.clientX - dragRef.current.sx);
       tRef.current.y = dragRef.current.py + (e.clientY - dragRef.current.sy);
     };
@@ -240,10 +244,10 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       if (!dragRef.current.a) return;
-      const dx = Math.abs(e.clientX - dragRef.current.sx);
-      const dy = Math.abs(e.clientY - dragRef.current.sy);
       dragRef.current.a = false;
-      if (dx < 4 && dy < 4) {
+      // Use max distance travelled during the entire drag — prevents accidental clicks
+      // when returning near the start after a large pan
+      if (mouseMaxDist < 10) {
         velRef.current = { x: 0, y: 0 };
         const pos = screenToGrid(e.clientX, e.clientY);
         if (pos && isLogoPixel(pos.x, pos.y)) {
@@ -251,6 +255,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
           onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
         }
       }
+      mouseMaxDist = 0;
     };
 
     // ── Touch: single-finger pan + two-finger pinch zoom ──
@@ -258,6 +263,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     let touchStartX = 0, touchStartY = 0;
     let touchStartPanX = 0, touchStartPanY = 0;
     let lastTouchX = 0, lastTouchY = 0;
+    let touchMaxDist = 0;
     let pinchDist = 0;
     let isTouching = false;
 
@@ -270,6 +276,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         touchStartY = lastTouchY = t.clientY;
         touchStartPanX = tRef.current.x;
         touchStartPanY = tRef.current.y;
+        touchMaxDist = 0;
         dragRef.current.a = true;
         velRef.current = { x: 0, y: 0 };
       } else if (e.touches.length === 2) {
@@ -289,6 +296,8 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         if (t.identifier === touchId) {
           lastTouchX = t.clientX;
           lastTouchY = t.clientY;
+          const dist = Math.sqrt((t.clientX - touchStartX) ** 2 + (t.clientY - touchStartY) ** 2);
+          if (dist > touchMaxDist) touchMaxDist = dist;
           tRef.current.x = touchStartPanX + (t.clientX - touchStartX);
           tRef.current.y = touchStartPanY + (t.clientY - touchStartY);
         }
@@ -309,10 +318,9 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         // All fingers lifted
         isTouching = false;
         if (dragRef.current.a && touchId !== null) {
-          const dx = Math.abs(lastTouchX - touchStartX);
-          const dy = Math.abs(lastTouchY - touchStartY);
           dragRef.current.a = false;
-          if (dx < 10 && dy < 10) {
+          // Use max distance travelled — prevents tap detection during a pan
+          if (touchMaxDist < 16) {
             // It was a tap — handle as click
             const pos = screenToGrid(lastTouchX, lastTouchY);
             if (pos && isLogoPixel(pos.x, pos.y)) {
@@ -322,6 +330,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
           }
         }
         touchId = null;
+        touchMaxDist = 0;
         pinchDist = 0;
       } else if (e.touches.length === 1) {
         // Transitioned from 2→1 finger — start a new single-finger drag
@@ -331,6 +340,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         touchStartY = lastTouchY = t.clientY;
         touchStartPanX = tRef.current.x;
         touchStartPanY = tRef.current.y;
+        touchMaxDist = 0;
         dragRef.current.a = true;
         velRef.current = { x: 0, y: 0 };
         pinchDist = 0;
