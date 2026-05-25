@@ -189,8 +189,8 @@ export default function Home() {
           <div className="relative glass-card overflow-hidden animate-scale-in" style={{ height: 'min(440px, 68vw)' }}>
             {/* Ambient glow */}
             <div className="absolute inset-0 pointer-events-none z-0">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full bg-[#0052FF]/6 blur-[90px] animate-breathe" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full bg-[#0052FF]/4 blur-[60px] animate-breathe" style={{ animationDelay: '1.5s' }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full bg-[#0052FF]/12 blur-[90px] animate-breathe" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full bg-[#0052FF]/8 blur-[60px] animate-breathe" style={{ animationDelay: '1.5s' }} />
             </div>
             {/* Particles */}
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">

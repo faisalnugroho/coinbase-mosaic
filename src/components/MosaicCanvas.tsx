@@ -109,10 +109,10 @@ export default function MosaicCanvas({ pixels, onPixelClick }: MosaicCanvasProps
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
     // Breathing cinematic glow
-    const breathe = 0.06 + Math.sin(t * 0.7) * 0.035;
+    const breathe = 0.08 + Math.sin(t * 0.7) * 0.06;
     const glow1 = ctx.createRadialGradient(GRID_PX / 2, GRID_PX / 2, 130, GRID_PX / 2, GRID_PX / 2, 400);
-    glow1.addColorStop(0, `rgba(0, 82, 255, ${breathe + 0.08})`);
-    glow1.addColorStop(0.4, `rgba(0, 82, 255, ${breathe * 0.6})`);
+    glow1.addColorStop(0, `rgba(0, 82, 255, ${breathe + 0.10})`);
+    glow1.addColorStop(0.4, `rgba(0, 82, 255, ${breathe * 0.7})`);
     glow1.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
@@ -124,11 +124,13 @@ export default function MosaicCanvas({ pixels, onPixelClick }: MosaicCanvasProps
     ctx.fillStyle = spot;
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
-    // Scatter pixels
+    // Scatter pixels — visible ambient particles
     for (const [px, py] of SCATTER_PIXELS) {
       const hashX = ((px * 374761393 + py * 668265263) & 0x7fffffff) / 0x7fffffff;
       const offsetX = (hashX - 0.5) * 3.5;
-      const alpha = 0.03 + hashX * 0.06 + Math.sin(t * 1.3 + px * 0.08) * 0.015;
+      const dist = Math.sqrt((px - 49.5) ** 2 + (py - 49.5) ** 2);
+      const fadeIn = Math.max(0, 1 - (dist - 42) / 6);
+      const alpha = (0.06 + hashX * 0.12 + Math.sin(t * 1.3 + px * 0.08) * 0.02) * fadeIn;
       ctx.fillStyle = `rgba(0, 82, 255, ${alpha})`;
       ctx.fillRect(px * CELL_SIZE + offsetX, py * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
     }
@@ -155,16 +157,16 @@ export default function MosaicCanvas({ pixels, onPixelClick }: MosaicCanvasProps
           }
           ctx.restore();
         } else {
-          ctx.fillStyle = '#0a1226';
+          ctx.fillStyle = '#0c1e45';
           ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
           if (pixel.profile_pic_url) loadImage(pixel.profile_pic_url).then(() => draw());
         }
       } else {
-        // Unclaimed — clean dark blue square
-        ctx.fillStyle = '#0a1226';
+        // Unclaimed — visible dark blue square
+        ctx.fillStyle = '#0c1e45';
         ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
-        ctx.strokeStyle = 'rgba(0, 82, 255, 0.08)';
-        ctx.lineWidth = 0.35;
+        ctx.strokeStyle = 'rgba(0, 82, 255, 0.18)';
+        ctx.lineWidth = 0.5;
         ctx.strokeRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
 
         if (hovered) {
@@ -178,8 +180,8 @@ export default function MosaicCanvas({ pixels, onPixelClick }: MosaicCanvasProps
     }
 
     // Outer ring
-    ctx.strokeStyle = 'rgba(0, 82, 255, 0.10)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0, 82, 255, 0.20)';
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.arc(GRID_PX / 2, GRID_PX / 2, 42 * CELL_SIZE, 0, Math.PI * 2);
     ctx.stroke();
