@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://sdwtprdggwuqanbuaeww.supabase.co",
