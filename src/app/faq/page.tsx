@@ -34,6 +34,15 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-[#04070F] text-[#F0F4FF]">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-[#030611]/80 backdrop-blur-2xl border-b border-white/[0.03]" role="navigation">
+        <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0052FF] to-[#00b4d8] flex items-center justify-center text-white font-bold text-[11px] shadow-[0_0_12px_rgba(0,82,255,0.3)]">M</div>
+            <span className="text-white/35 hover:text-white text-[13px] transition-colors font-medium">← Mosaic</span>
+          </Link>
+        </div>
+      </nav>
       <section className="pt-24 pb-16 px-4 max-w-lg mx-auto">
         <h1 className="text-[26px] font-bold font-display tracking-[-0.03em] text-center mb-6 text-gradient">FAQ</h1>
 

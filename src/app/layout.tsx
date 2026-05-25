@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Mosaic — One Account. One Pixel. One Place in History.',
     description: 'Claim your pixel. Become part of internet history.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+    images: [{ url: '/og-image.svg', width: 1200, height: 630 }],
   },
 };
 
