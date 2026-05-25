@@ -1,4 +1,5 @@
 'use client';
+// Rebuilt 1:1 from uploaded image
 
 import { TOTAL_LOGO_PIXELS } from '@/lib/logo-mask';
 
@@ -15,10 +16,11 @@ export default function LeftPanel({ claimedCount, lastClaimedAt, user, onConnect
 
   return (
     <div className="w-full lg:w-[340px] flex-shrink-0 px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-6">
-      {/* Headline */}
+      {/* Headline — "onchain." in Coinbase blue */}
       <div>
         <h1 className="text-white text-3xl lg:text-4xl font-bold leading-tight tracking-tight">
-          Built by you.<br />Forever onchain.
+          Built by you.<br />
+          Forever <span className="text-[#0052FF]">onchain.</span>
         </h1>
         <p className="text-white/40 text-sm mt-3 leading-relaxed">
           Each pixel is an X user. Together we build the world&apos;s largest Coinbase community mosaic.
@@ -40,11 +42,11 @@ export default function LeftPanel({ claimedCount, lastClaimedAt, user, onConnect
           {claimedCount.toLocaleString()}
         </div>
         <div className="text-white/30 text-xs mt-1">of {TOTAL_LOGO_PIXELS.toLocaleString()} pixels claimed</div>
-        
+
         {/* Progress bar */}
         <div className="mt-4 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#0052FF] rounded-full transition-all duration-700 ease-out"
+            className="h-full bg-[#0052FF] rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(0,82,255,0.4)]"
             style={{ width: `${pct}%` }}
           />
         </div>

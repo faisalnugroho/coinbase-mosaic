@@ -1,11 +1,11 @@
 'use client';
+// Rebuilt 1:1 from uploaded image
 
 import { Pixel } from '@/lib/supabase';
 import { shareToX } from '@/lib/utils';
-import { shareToFarcaster } from '@/lib/farcaster';
 
 interface RightPanelProps {
-  pixel: Pixel | null;
+  pixel: Pixel;
   x: number;
   y: number;
   onClose: () => void;
@@ -18,7 +18,7 @@ export default function RightPanel({ pixel, x, y, onClose }: RightPanelProps) {
   const shareText = `I claimed my pixel on the Coinbase Community Mosaic Wall! 🟦\n\n"${pixel.message || ''}"\n\nJoin me:`;
 
   return (
-    <div className="w-full lg:w-[340px] flex-shrink-0 border-l border-white/[0.06] bg-[#0a0a0a]/50 backdrop-blur-sm">
+    <div className="w-full lg:w-[340px] flex-shrink-0 border-l border-white/[0.06] bg-[#0a0a0a]/60 backdrop-blur-sm">
       <div className="p-6 flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -27,28 +27,29 @@ export default function RightPanel({ pixel, x, y, onClose }: RightPanelProps) {
             <div className="text-white font-mono text-sm">({x}, {y})</div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-green-400 text-xs font-medium bg-green-400/10 px-2 py-0.5 rounded-full">
+            <span className="text-[#0052FF] text-xs font-medium bg-[#0052FF]/10 px-2 py-0.5 rounded-full">
               Claimed
             </span>
-            <button onClick={onClose} className="text-white/30 hover:text-white/60 text-lg">✕</button>
+            <button onClick={onClose} className="text-white/30 hover:text-white/60 text-lg transition-colors">✕</button>
           </div>
         </div>
 
         {/* Profile */}
         <div className="flex flex-col items-center text-center pb-6 border-b border-white/[0.06]">
-          <img
-            src={pixel.profile_pic_url || ''}
-            alt={pixel.username || ''}
-            className="w-20 h-20 rounded-full object-cover border-3 border-[#0052FF] mb-4"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>';
-            }}
-          />
+          <div className="relative mb-4">
+            <img
+              src={pixel.profile_pic_url || ''}
+              alt={pixel.username || ''}
+              className="w-20 h-20 rounded-full object-cover ring-3 ring-[#0052FF]/30"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%230052FF"/></svg>';
+              }}
+            />
+            {/* Blue glow behind avatar */}
+            <div className="absolute inset-0 rounded-full blur-xl bg-[#0052FF]/20 -z-10" />
+          </div>
           <div className="flex items-center gap-1.5">
             <span className="text-white font-semibold text-lg">{pixel.display_name}</span>
-            <svg className="w-4 h-4 text-[#0052FF]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-            </svg>
           </div>
           <span className="text-white/40 text-sm">@{pixel.username}</span>
         </div>
@@ -88,7 +89,7 @@ export default function RightPanel({ pixel, x, y, onClose }: RightPanelProps) {
           </a>
           <button
             onClick={() => shareToX(siteUrl, shareText)}
-            className="flex items-center justify-center gap-2 bg-[#0052FF] hover:bg-[#0045d9] rounded-xl py-3 text-white text-sm font-medium transition-colors"
+            className="flex items-center justify-center gap-2 bg-[#0052FF] hover:bg-[#0045d9] rounded-xl py-3 text-white text-sm font-medium transition-colors shadow-lg shadow-[#0052FF]/20"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>

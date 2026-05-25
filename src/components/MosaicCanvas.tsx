@@ -1,8 +1,10 @@
 'use client';
+// Rebuilt 1:1 from uploaded image
+// MosaicCanvas — scatter/grunge Coinbase C logo with blue glow
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { supabase, Pixel } from '@/lib/supabase';
-import { isLogoPixel, LOGO_PIXELS } from '@/lib/logo-mask';
+import { isLogoPixel, isScatterPixelFunc, LOGO_PIXELS, SCATTER_PIXELS } from '@/lib/logo-mask';
 
 interface MosaicCanvasProps {
   pixels: Map<string, Pixel>;
@@ -64,21 +66,51 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     ctx.scale(scale, scale);
     ctx.translate(-GRID_PX / 2 + panX / scale, -GRID_PX / 2 + panY / scale);
 
-    // Background
+    // Dark background
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
-    // Non-logo area
-    ctx.fillStyle = '#0d0d0d';
-    for (let y = 0; y < 100; y++) {
-      for (let x = 0; x < 100; x++) {
-        if (!isLogoPixel(x, y)) {
-          ctx.fillRect(x * CELL_SIZE + 0.5, y * CELL_SIZE + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
-        }
-      }
+    // Blue glow aura behind the C (radial gradient)
+    const gradient = ctx.createRadialGradient(
+      GRID_PX / 2, GRID_PX / 2, 180,
+      GRID_PX / 2, GRID_PX / 2, 420
+    );
+    gradient.addColorStop(0, 'rgba(0, 82, 255, 0.12)');
+    gradient.addColorStop(0.4, 'rgba(0, 82, 255, 0.04)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GRID_PX, GRID_PX);
+
+    // Second tighter glow
+    const glow2 = ctx.createRadialGradient(
+      GRID_PX / 2, GRID_PX / 2, 160,
+      GRID_PX / 2, GRID_PX / 2, 340
+    );
+    glow2.addColorStop(0, 'rgba(0, 82, 255, 0.18)');
+    glow2.addColorStop(0.5, 'rgba(0, 82, 255, 0.05)');
+    glow2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, GRID_PX, GRID_PX);
+
+    // Draw scatter pixels first (behind the C)
+    for (const [px, py] of SCATTER_PIXELS) {
+      // Deterministic offset for scatter/grunge effect
+      const hashX = ((px * 374761393 + py * 668265263) & 0x7fffffff) / 0x7fffffff;
+      const hashY = ((px * 4372891 + py * 982451653) & 0x7fffffff) / 0x7fffffff;
+      const offsetX = (hashX - 0.5) * 3.5;
+      const offsetY = (hashY - 0.5) * 3.5;
+      const alpha = 0.15 + hashX * 0.25;
+
+      ctx.fillStyle = `rgba(0, 52, 153, ${alpha})`;
+      ctx.fillRect(
+        px * CELL_SIZE + offsetX + 0.5,
+        py * CELL_SIZE + offsetY + 0.5,
+        CELL_SIZE - 1.5,
+        CELL_SIZE - 1.5
+      );
     }
 
-    // Draw logo pixels
+    // Draw C logo pixels
     for (const [px, py] of LOGO_PIXELS) {
       const key = `${px},${py}`;
       const pixel = pixels.get(key);
@@ -86,32 +118,60 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
       const ry = py * CELL_SIZE;
 
       if (pixel?.profile_pic_url) {
+        // Claimed pixel — draw profile photo
         const img = imageCache.current.get(pixel.profile_pic_url);
         if (img?.complete && img.naturalWidth > 0) {
+          // Slight rounded clip for profile photos
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1, 1.5);
+          ctx.clip();
           ctx.drawImage(img, rx, ry, CELL_SIZE, CELL_SIZE);
+          ctx.restore();
         } else {
+          // Photo loading — show placeholder
           ctx.fillStyle = '#002b80';
-          ctx.fillRect(rx, ry, CELL_SIZE, CELL_SIZE);
+          ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
           if (pixel.profile_pic_url) {
             loadImage(pixel.profile_pic_url).then(() => draw());
           }
         }
       } else {
-        // Unclaimed: dark blue
-        ctx.fillStyle = '#003399';
+        // Unclaimed — bright white/blue to make the C visible
+        const dx = px - 49.5;
+        const dy = py - 49.5;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Brighter near the edge of the C (makes it pop against scatter)
+        const brightnessFactor = Math.min(1, (dist / 38) * 1.2);
+        const r = Math.floor(0 + brightnessFactor * 0);
+        const g = Math.floor(60 + brightnessFactor * 80);
+        const b = Math.floor(180 + brightnessFactor * 75);
+
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+
+        // Subtle inner highlight on each unclaimed pixel
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(rx + 1, ry + 1, CELL_SIZE - 2, 1);
       }
     }
 
-    // Subtle grid lines
-    if (scale > 3) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-      ctx.lineWidth = 0.2;
-      for (let i = 0; i <= 100; i++) {
-        ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, GRID_PX); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(GRID_PX, i * CELL_SIZE); ctx.stroke();
+    // Subtle grid lines on C pixels only (at high zoom)
+    if (scale > 4) {
+      ctx.strokeStyle = 'rgba(0, 82, 255, 0.08)';
+      ctx.lineWidth = 0.15;
+      for (const [gx, gy] of LOGO_PIXELS) {
+        ctx.strokeRect(gx * CELL_SIZE + 0.5, gy * CELL_SIZE + 0.5, CELL_SIZE, CELL_SIZE);
       }
     }
+
+    // Outer ring glow outline
+    ctx.strokeStyle = 'rgba(0, 82, 255, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(GRID_PX / 2, GRID_PX / 2, 42 * CELL_SIZE, 0, Math.PI * 2);
+    ctx.stroke();
 
     ctx.restore();
     setLoading(false);
@@ -203,9 +263,9 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     <div ref={containerRef} className="relative w-full h-full bg-[#0a0a0a] overflow-hidden">
       <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Drag to explore hint */}
+      {/* Drag hint */}
       {showHint && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none z-10">
           <div className="bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-full px-5 py-2.5 text-white/40 text-xs flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
@@ -216,7 +276,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
       )}
 
       {/* Zoom controls */}
-      <div className="absolute bottom-6 right-6 flex items-center gap-1 bg-[#0a0a0a]/90 backdrop-blur-sm border border-white/[0.08] rounded-xl p-1.5">
+      <div className="absolute bottom-6 right-6 flex items-center gap-1 bg-[#0a0a0a]/90 backdrop-blur-sm border border-white/[0.08] rounded-xl p-1.5 z-10">
         <button
           onClick={() => updateZoom(transformRef.current.scale - 1)}
           className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors text-lg"
@@ -241,7 +301,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
       </div>
 
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]/80 z-20">
           <div className="text-white/40 text-sm animate-pulse">Loading mosaic...</div>
         </div>
       )}
