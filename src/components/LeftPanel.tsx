@@ -15,14 +15,19 @@ export default function LeftPanel({ claimedCount, lastClaimedAt, user, onConnect
   const pct = TOTAL_LOGO_PIXELS > 0 ? Math.round((claimedCount / TOTAL_LOGO_PIXELS) * 100) : 0;
 
   return (
-    <div className="w-full lg:w-[340px] flex-shrink-0 px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-6">
-      {/* Headline — "onchain." in Coinbase blue */}
+    <div className="w-[320px] flex-shrink-0 px-5 py-8 flex flex-col gap-6">
+      {/* Headline */}
       <div>
-        <h1 className="text-white text-3xl lg:text-4xl font-bold leading-tight tracking-tight">
-          Built by you.<br />
-          Forever <span className="text-[#0052FF]">onchain.</span>
+        <h1 className="text-white text-[42px] font-bold leading-[1.1] tracking-[-0.02em]">
+          Built by you.
         </h1>
-        <p className="text-white/40 text-sm mt-3 leading-relaxed">
+        <h1 className="text-white text-[42px] font-bold leading-[1.1] tracking-[-0.02em]">
+          Forever
+        </h1>
+        <h1 className="text-[#0052FF] text-[42px] font-bold leading-[1.1] tracking-[-0.02em]">
+          onchain.
+        </h1>
+        <p className="text-[#8a8a8a] text-[14px] mt-3 leading-relaxed max-w-[280px]">
           Each pixel is an X user. Together we build the world&apos;s largest Coinbase community mosaic.
         </p>
       </div>
@@ -30,55 +35,59 @@ export default function LeftPanel({ claimedCount, lastClaimedAt, user, onConnect
       {/* Live indicator */}
       <div className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D395] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00D395]"></span>
         </span>
-        <span className="text-green-400 text-xs font-medium uppercase tracking-wider">Live Building</span>
+        <span className="text-[#00D395] text-[11px] font-semibold uppercase tracking-[0.12em]">Live Building</span>
       </div>
 
       {/* Counter */}
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
-        <div className="text-5xl font-bold text-white tabular-nums tracking-tight">
+      <div className="bg-[#111111] border border-[#1a1a2e] rounded-2xl p-5">
+        <div className="text-white text-[48px] font-bold tabular-nums leading-none tracking-[-0.02em]">
           {claimedCount.toLocaleString()}
         </div>
-        <div className="text-white/30 text-xs mt-1">of {TOTAL_LOGO_PIXELS.toLocaleString()} pixels claimed</div>
+        <div className="text-[#8a8a8a] text-[13px] mt-1">of {TOTAL_LOGO_PIXELS.toLocaleString()} pixels claimed</div>
 
         {/* Progress bar */}
-        <div className="mt-4 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+        <div className="mt-4 h-1.5 bg-[#1a1a2e] rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#0052FF] rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(0,82,255,0.4)]"
+            className="h-full bg-[#0052FF] rounded-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(0,82,255,0.5)]"
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        <div className="flex justify-between mt-3 text-xs">
-          <div>
-            <span className="text-white/60">Claimed</span>
-            <span className="text-white font-medium ml-1">{claimedCount.toLocaleString()}</span>
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="bg-[#0a0a0a] rounded-xl p-3 text-center">
+            <div className="text-white text-[15px] font-bold tabular-nums">{claimedCount.toLocaleString()}</div>
+            <div className="text-[#8a8a8a] text-[11px] mt-0.5">Claimed</div>
           </div>
-          <div>
-            <span className="text-white/60">Remaining</span>
-            <span className="text-white font-medium ml-1">{remaining.toLocaleString()}</span>
+          <div className="bg-[#0a0a0a] rounded-xl p-3 text-center">
+            <div className="text-white text-[15px] font-bold tabular-nums">{remaining.toLocaleString()}</div>
+            <div className="text-[#8a8a8a] text-[11px] mt-0.5">Remaining</div>
           </div>
-          <div>
-            <span className="text-white/60">Last</span>
-            <span className="text-white font-medium ml-1">{lastClaimedAt || '--:--'}</span>
+          <div className="bg-[#0a0a0a] rounded-xl p-3 text-center">
+            <div className="text-white text-[15px] font-bold tabular-nums">{lastClaimedAt || '--:--'}</div>
+            <div className="text-[#8a8a8a] text-[11px] mt-0.5">Last</div>
           </div>
         </div>
       </div>
 
-      {/* CTA */}
+      {/* CTA Button */}
       {!user && (
         <button
           onClick={onConnectClick}
-          className="w-full bg-[#0052FF] text-white font-semibold py-4 px-6 rounded-2xl hover:bg-[#0045d9] transition-all shadow-lg shadow-[#0052FF]/20 text-sm"
+          className="w-full bg-[#0052FF] text-white font-semibold py-[14px] px-5 rounded-2xl hover:bg-[#0045d9] transition-all shadow-[0_0_20px_rgba(0,82,255,0.3)] text-[14px] flex items-center justify-center gap-2"
         >
+          <svg className="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
           Connect X to claim your pixel
         </button>
       )}
 
       {user && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 flex items-center gap-3">
+        <div className="bg-[#111111] border border-[#1a1a2e] rounded-2xl p-4 flex items-center gap-3">
           <img
             src={user.profile_pic_url}
             alt={user.username}
@@ -89,14 +98,14 @@ export default function LeftPanel({ claimedCount, lastClaimedAt, user, onConnect
           />
           <div className="flex-1 min-w-0">
             <div className="text-white text-sm font-medium truncate">{user.display_name}</div>
-            <div className="text-white/40 text-xs truncate">@{user.username}</div>
+            <div className="text-[#8a8a8a] text-xs truncate">@{user.username}</div>
           </div>
-          <span className="text-green-400 text-xs font-medium bg-green-400/10 px-2 py-0.5 rounded-full">Claimed ✓</span>
+          <span className="text-[#00D395] text-[11px] font-semibold bg-[#00D395]/10 px-2 py-0.5 rounded-full">Claimed ✓</span>
         </div>
       )}
 
       {/* Fine print */}
-      <p className="text-white/20 text-xs leading-relaxed">
+      <p className="text-[#8a8a8a]/40 text-[12px] leading-relaxed">
         One X account = One pixel.<br />Permanent. Non-transferable.
       </p>
     </div>

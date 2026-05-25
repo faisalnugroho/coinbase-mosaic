@@ -1,10 +1,9 @@
 'use client';
 // Rebuilt 1:1 from uploaded image
-// MosaicCanvas — scatter/grunge Coinbase C logo with blue glow
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { supabase, Pixel } from '@/lib/supabase';
-import { isLogoPixel, isScatterPixelFunc, LOGO_PIXELS, SCATTER_PIXELS } from '@/lib/logo-mask';
+import { Pixel } from '@/lib/supabase';
+import { isLogoPixel, LOGO_PIXELS, SCATTER_PIXELS } from '@/lib/logo-mask';
 
 interface MosaicCanvasProps {
   pixels: Map<string, Pixel>;
@@ -19,12 +18,13 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(5);
+  const [zoomLevel, setZoomLevel] = useState(100);
   const [showHint, setShowHint] = useState(true);
 
   const transformRef = useRef({ x: 0, y: 0, scale: 5 });
   const dragRef = useRef({ active: false, startX: 0, startY: 0, panX: 0, panY: 0 });
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const hoveredPixel = useRef<{ x: number; y: number } | null>(null);
 
   const loadImage = useCallback((url: string): Promise<HTMLImageElement> => {
     const cached = imageCache.current.get(url);
@@ -66,42 +66,41 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     ctx.scale(scale, scale);
     ctx.translate(-GRID_PX / 2 + panX / scale, -GRID_PX / 2 + panY / scale);
 
-    // Dark background
+    // Black background
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
-    // Blue glow aura behind the C (radial gradient)
-    const gradient = ctx.createRadialGradient(
-      GRID_PX / 2, GRID_PX / 2, 180,
+    // Outer blue glow aura
+    const glow1 = ctx.createRadialGradient(
+      GRID_PX / 2, GRID_PX / 2, 160,
       GRID_PX / 2, GRID_PX / 2, 420
     );
-    gradient.addColorStop(0, 'rgba(0, 82, 255, 0.12)');
-    gradient.addColorStop(0.4, 'rgba(0, 82, 255, 0.04)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = gradient;
+    glow1.addColorStop(0, 'rgba(0, 82, 255, 0.10)');
+    glow1.addColorStop(0.5, 'rgba(0, 82, 255, 0.03)');
+    glow1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
-    // Second tighter glow
+    // Inner tighter glow
     const glow2 = ctx.createRadialGradient(
-      GRID_PX / 2, GRID_PX / 2, 160,
+      GRID_PX / 2, GRID_PX / 2, 140,
       GRID_PX / 2, GRID_PX / 2, 340
     );
-    glow2.addColorStop(0, 'rgba(0, 82, 255, 0.18)');
-    glow2.addColorStop(0.5, 'rgba(0, 82, 255, 0.05)');
+    glow2.addColorStop(0, 'rgba(0, 82, 255, 0.15)');
+    glow2.addColorStop(0.6, 'rgba(0, 82, 255, 0.04)');
     glow2.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = glow2;
     ctx.fillRect(0, 0, GRID_PX, GRID_PX);
 
-    // Draw scatter pixels first (behind the C)
+    // Draw scatter/grunge pixels behind the C
     for (const [px, py] of SCATTER_PIXELS) {
-      // Deterministic offset for scatter/grunge effect
       const hashX = ((px * 374761393 + py * 668265263) & 0x7fffffff) / 0x7fffffff;
       const hashY = ((px * 4372891 + py * 982451653) & 0x7fffffff) / 0x7fffffff;
       const offsetX = (hashX - 0.5) * 3.5;
       const offsetY = (hashY - 0.5) * 3.5;
-      const alpha = 0.15 + hashX * 0.25;
+      const alpha = 0.10 + hashX * 0.20;
 
-      ctx.fillStyle = `rgba(0, 52, 153, ${alpha})`;
+      ctx.fillStyle = `rgba(0, 40, 120, ${alpha})`;
       ctx.fillRect(
         px * CELL_SIZE + offsetX + 0.5,
         py * CELL_SIZE + offsetY + 0.5,
@@ -116,58 +115,73 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
       const pixel = pixels.get(key);
       const rx = px * CELL_SIZE;
       const ry = py * CELL_SIZE;
+      const isHovered = hoveredPixel.current?.x === px && hoveredPixel.current?.y === py;
 
       if (pixel?.profile_pic_url) {
-        // Claimed pixel — draw profile photo
+        // Claimed pixel — circular profile photo
         const img = imageCache.current.get(pixel.profile_pic_url);
         if (img?.complete && img.naturalWidth > 0) {
-          // Slight rounded clip for profile photos
           ctx.save();
+          // Circular clip
           ctx.beginPath();
-          ctx.roundRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1, 1.5);
+          const cx = rx + CELL_SIZE / 2;
+          const cy = ry + CELL_SIZE / 2;
+          const cr = CELL_SIZE / 2 - 0.5;
+          ctx.arc(cx, cy, cr, 0, Math.PI * 2);
           ctx.clip();
           ctx.drawImage(img, rx, ry, CELL_SIZE, CELL_SIZE);
+
+          // Hover glow on claimed
+          if (isHovered) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, cr + 1, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 130, 255, 0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.shadowColor = 'rgba(0, 130, 255, 0.6)';
+            ctx.shadowBlur = 6;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
           ctx.restore();
         } else {
-          // Photo loading — show placeholder
-          ctx.fillStyle = '#002b80';
+          // Loading placeholder
+          ctx.fillStyle = '#0a1628';
           ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
           if (pixel.profile_pic_url) {
             loadImage(pixel.profile_pic_url).then(() => draw());
           }
         }
       } else {
-        // Unclaimed — bright white/blue to make the C visible
-        const dx = px - 49.5;
-        const dy = py - 49.5;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Brighter near the edge of the C (makes it pop against scatter)
-        const brightnessFactor = Math.min(1, (dist / 38) * 1.2);
-        const r = Math.floor(0 + brightnessFactor * 0);
-        const g = Math.floor(60 + brightnessFactor * 80);
-        const b = Math.floor(180 + brightnessFactor * 75);
-
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        // Unclaimed — dark blue with subtle border
+        ctx.fillStyle = '#0a1628';
         ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+        ctx.strokeStyle = 'rgba(0, 82, 255, 0.15)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
 
-        // Subtle inner highlight on each unclaimed pixel
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
-        ctx.fillRect(rx + 1, ry + 1, CELL_SIZE - 2, 1);
+        // Hover glow on unclaimed
+        if (isHovered) {
+          ctx.fillStyle = 'rgba(0, 82, 255, 0.3)';
+          ctx.fillRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+          ctx.strokeStyle = 'rgba(0, 130, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(rx + 0.5, ry + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+        }
       }
     }
 
-    // Subtle grid lines on C pixels only (at high zoom)
+    // Subtle grid lines at high zoom
     if (scale > 4) {
-      ctx.strokeStyle = 'rgba(0, 82, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(0, 82, 255, 0.06)';
       ctx.lineWidth = 0.15;
       for (const [gx, gy] of LOGO_PIXELS) {
         ctx.strokeRect(gx * CELL_SIZE + 0.5, gy * CELL_SIZE + 0.5, CELL_SIZE, CELL_SIZE);
       }
     }
 
-    // Outer ring glow outline
-    ctx.strokeStyle = 'rgba(0, 82, 255, 0.2)';
+    // Outer ring
+    ctx.strokeStyle = 'rgba(0, 82, 255, 0.15)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(GRID_PX / 2, GRID_PX / 2, 42 * CELL_SIZE, 0, Math.PI * 2);
@@ -196,7 +210,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
 
   const updateZoom = (newScale: number) => {
     transformRef.current.scale = Math.min(15, Math.max(1, newScale));
-    setZoomLevel(Math.round(transformRef.current.scale));
+    setZoomLevel(Math.round((transformRef.current.scale / 5) * 100));
     draw();
   };
 
@@ -217,11 +231,15 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     };
 
     const handleMouseMove = (e: MouseEvent) => {
+      const pos = screenToGrid(e.clientX, e.clientY);
       if (!dragRef.current.active) {
-        const pos = screenToGrid(e.clientX, e.clientY);
         if (pos && isLogoPixel(pos.x, pos.y)) {
+          hoveredPixel.current = { x: pos.x, y: pos.y };
           onPixelHover(pos.x, pos.y, pixels.get(`${pos.x},${pos.y}`) || null, e.clientX, e.clientY);
+        } else {
+          hoveredPixel.current = null;
         }
+        draw();
         return;
       }
       transformRef.current.x = dragRef.current.panX + (e.clientX - dragRef.current.startX);
@@ -246,7 +264,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', () => { dragRef.current.active = false; });
+    canvas.addEventListener('mouseleave', () => { dragRef.current.active = false; hoveredPixel.current = null; draw(); });
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
@@ -263,46 +281,48 @@ export default function MosaicCanvas({ pixels, onPixelClick, onPixelHover }: Mos
     <div ref={containerRef} className="relative w-full h-full bg-[#0a0a0a] overflow-hidden">
       <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Drag hint */}
+      {/* Drag hint — top left */}
       {showHint && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none z-10">
-          <div className="bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-full px-5 py-2.5 text-white/40 text-xs flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+        <div className="absolute top-4 left-4 pointer-events-none z-10">
+          <div className="bg-[#111111]/90 backdrop-blur-sm border border-[#1a1a2e] rounded-lg px-4 py-2.5 text-[#8a8a8a] text-xs flex items-center gap-2">
+            <svg className="w-4 h-4 text-[#8a8a8a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />
             </svg>
             Drag to explore • Scroll to zoom
           </div>
         </div>
       )}
 
-      {/* Zoom controls */}
-      <div className="absolute bottom-6 right-6 flex items-center gap-1 bg-[#0a0a0a]/90 backdrop-blur-sm border border-white/[0.08] rounded-xl p-1.5 z-10">
-        <button
-          onClick={() => updateZoom(transformRef.current.scale - 1)}
-          className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors text-lg"
-        >
-          −
-        </button>
-        <span className="text-white/60 text-xs min-w-[3rem] text-center tabular-nums">{zoomLevel}×</span>
-        <button
-          onClick={() => updateZoom(transformRef.current.scale + 1)}
-          className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors text-lg"
-        >
-          +
-        </button>
-        <div className="w-px h-5 bg-white/[0.08] mx-1" />
-        <button
-          onClick={fitToScreen}
-          className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors text-xs font-medium"
-          title="Fit to screen"
-        >
-          ⊡
-        </button>
+      {/* Zoom controls — bottom center */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+        <div className="flex items-center gap-0.5 bg-[#111111]/95 backdrop-blur-sm border border-[#1a1a2e] rounded-xl p-1">
+          <button
+            onClick={() => updateZoom(transformRef.current.scale - 1)}
+            className="w-8 h-8 flex items-center justify-center text-[#8a8a8a] hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors text-sm"
+          >
+            −
+          </button>
+          <span className="text-[#8a8a8a] text-[12px] min-w-[42px] text-center tabular-nums font-medium">{zoomLevel}%</span>
+          <button
+            onClick={() => updateZoom(transformRef.current.scale + 1)}
+            className="w-8 h-8 flex items-center justify-center text-[#8a8a8a] hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors text-sm"
+          >
+            +
+          </button>
+          <div className="w-px h-4 bg-[#1a1a2e] mx-1" />
+          <button
+            onClick={fitToScreen}
+            className="w-8 h-8 flex items-center justify-center text-[#8a8a8a] hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors text-[11px] font-medium"
+            title="Fit to screen"
+          >
+            ⊡
+          </button>
+        </div>
       </div>
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]/80 z-20">
-          <div className="text-white/40 text-sm animate-pulse">Loading mosaic...</div>
+          <div className="text-[#8a8a8a] text-sm animate-pulse">Loading mosaic...</div>
         </div>
       )}
     </div>

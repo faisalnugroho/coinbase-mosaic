@@ -1,80 +1,96 @@
 'use client';
+// Rebuilt 1:1 from uploaded image
 
-import Navbar from '@/components/Navbar';
-import CreatorCredit from '@/components/CreatorCredit';
+import { useState } from 'react';
+import Link from 'next/link';
 
-const faqs = [
+const faqItems = [
   {
     q: 'How do I claim a pixel?',
-    a: 'Click on any empty blue pixel in the mosaic grid (the ones inside the Coinbase logo circle). Sign in with your X account, write a message up to 100 characters, and click "Claim Pixel". Your profile photo will immediately fill that spot.',
+    a: 'Click "Connect X" to sign in with your X (Twitter) account. Then drag and zoom the mosaic canvas to find an unclaimed pixel inside the Coinbase logo. Click it, add an optional message, and confirm. Your profile photo will appear on the canvas permanently.',
   },
   {
     q: 'Can I change my pixel after claiming?',
-    a: 'No. Once a pixel is claimed, it is permanently associated with your X account. You cannot move it, change the message, or claim another one. Choose carefully!',
+    a: 'No. Every pixel claim is permanent and non-transferable. Once you claim a pixel, it belongs to your X account forever. Choose wisely!',
   },
   {
     q: 'How many pixels can I claim?',
-    a: 'One. Each X account can claim exactly one pixel. This ensures that every pixel represents a unique person in the Coinbase community.',
+    a: 'One X account = One pixel. This ensures every person gets their own unique spot and keeps the mosaic truly community-driven.',
   },
   {
-    q: 'What happens if I delete my X account?',
-    a: 'Your pixel remains in the mosaic. The profile photo may stop loading, but the pixel stays claimed under your X username. There is no way to "unclaim" or transfer a pixel.',
+    q: 'Is this an official Coinbase product?',
+    a: 'No, Coinbase Community Mosaic is a community-built project. It is not affiliated with or endorsed by Coinbase, Inc. It was created by @Zkfync as a tribute to the Coinbase community.',
   },
   {
-    q: 'Is this affiliated with Coinbase?',
-    a: 'No. Coinbase Mosaic is an independent community art project created by @Zkfync. It is not affiliated with, endorsed by, or sponsored by Coinbase Inc. It is a tribute to the Coinbase community.',
+    q: 'What happens to my pixel if I change my X profile?',
+    a: 'Your pixel is linked to your X account at the time of claiming. It is permanent and does not change if you update your X profile photo or username later.',
   },
   {
-    q: 'Does this use blockchain or NFTs?',
-    a: 'No blockchain, no NFTs, no tokens, no wallet required. Pixel claims are stored in a simple database. This keeps it accessible to everyone — no gas fees, no complexity.',
+    q: 'How many pixels are there total?',
+    a: 'The Coinbase logo contains approximately 6,092 claimable pixels. Each one represents a unique spot in the 100×100 grid that forms the iconic "C" shape.',
   },
   {
-    q: 'What is the pixel scatter effect?',
-    a: 'Around the edges of the Coinbase logo circle, some pixels appear slightly offset or scattered. This creates a grunge/glitch aesthetic that makes the mosaic feel organic and alive, rather than a perfect vector graphic.',
+    q: 'Can I delete or remove my pixel?',
+    a: 'No. Once claimed, your pixel becomes part of the mosaic permanently. This immutability is what makes the mosaic a true community artifact.',
   },
   {
-    q: 'How big is the mosaic?',
-    a: 'The canvas is 100 × 100 pixels (10,000 total cells). Of these, approximately 6,092 form the Coinbase logo circle and can be claimed. The remaining cells outside the circle are decorative background.',
-  },
-  {
-    q: 'Can I use a custom profile photo?',
-    a: 'Your profile photo is automatically pulled from your X account. If you sign in with X OAuth, it uses your actual X avatar. If you enter your username manually, it generates a Gravatar-style avatar based on your handle.',
-  },
-  {
-    q: 'Is my pixel really permanent?',
-    a: 'Yes. Once claimed, your pixel record is stored permanently in the database. As long as this website exists, your pixel will remain. There is no mechanism for deletion or modification.',
+    q: 'Is my data safe? What do you store?',
+    a: 'We only store your public X profile information (username, display name, profile photo URL) and the message you choose to include. We do not have access to your X account credentials — authentication is handled securely through X OAuth.',
   },
 ];
 
 export default function FAQPage() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-16">
-      <Navbar onConnectClick={() => {}} />
-
-      <div className="max-w-3xl mx-auto px-6 py-20">
-        <h1 className="text-white text-4xl font-bold tracking-tight mb-4">Frequently Asked Questions</h1>
-        <p className="text-white/50 text-lg mb-16 leading-relaxed">
-          Everything you need to know about Coinbase Mosaic.
-        </p>
-
-        <div className="space-y-6">
-          {faqs.map((faq, i) => (
-            <div key={i} className="border border-white/[0.06] rounded-2xl p-6 bg-white/[0.02]">
-              <h3 className="text-white font-semibold mb-2">{faq.q}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{faq.a}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-16 text-center">
-          <p className="text-white/30 text-sm">
-            Still have questions? Reach out to{' '}
-            <a href="https://x.com/Zkfync" target="_blank" rel="noopener noreferrer" className="text-[#0052FF] hover:underline">@Zkfync</a> on X.
+    <div className="min-h-screen bg-[#0a0a0a] text-white pt-[60px]">
+      <section className="py-20 px-5">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-white text-[36px] font-bold tracking-[-0.02em] text-center mb-2">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-[#8a8a8a] text-[14px] text-center mb-12">
+            Everything you need to know about Coinbase Community Mosaic
           </p>
-        </div>
-      </div>
 
-      <CreatorCredit />
+          <div className="space-y-2">
+            {faqItems.map((item, i) => (
+              <div
+                key={i}
+                className="bg-[#111111] border border-[#1a1a2e] rounded-xl overflow-hidden"
+              >
+                <button
+                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.01] transition-colors"
+                >
+                  <span className="text-white text-[14px] font-medium pr-8">{item.q}</span>
+                  <svg
+                    className={`w-5 h-5 text-[#8a8a8a] flex-shrink-0 transition-transform duration-200 ${
+                      openIndex === i ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {openIndex === i && (
+                  <div className="px-5 pb-4 animate-in">
+                    <p className="text-[#8a8a8a] text-[14px] leading-relaxed">{item.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="text-center pb-16">
+        <Link href="/" className="text-[#8a8a8a] hover:text-white text-[14px] transition-colors">
+          ← Back to Mosaic
+        </Link>
+      </div>
     </div>
   );
 }

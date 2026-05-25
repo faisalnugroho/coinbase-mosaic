@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase, Pixel } from '@/lib/supabase';
-import { isLogoPixel, TOTAL_LOGO_PIXELS } from '@/lib/logo-mask';
+import { isLogoPixel } from '@/lib/logo-mask';
 import { fetchPixels, claimPixel } from '@/lib/pixels';
 import { detectFarcaster, getFarcasterUser } from '@/lib/farcaster';
 import { generateUserId, getGravatarUrl } from '@/lib/utils';
@@ -50,7 +50,6 @@ export default function Home() {
       const pixelMap = await fetchPixels(supabase);
       setPixels(pixelMap);
       setClaimedCount(pixelMap.size);
-      // Find most recent claim
       let latest: string | null = null;
       pixelMap.forEach((p) => {
         if (p.claimed_at && (!latest || p.claimed_at > latest)) latest = p.claimed_at;
@@ -63,7 +62,6 @@ export default function Home() {
     }
   };
 
-  // OAuth callback
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
@@ -128,11 +126,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
-      {/* Navbar */}
       <Navbar onConnectClick={() => setShowLogin(true)} />
 
-      {/* Main content */}
-      <div className="flex-1 flex pt-16" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* Main content — three column layout */}
+      <div className="flex-1 flex pt-[60px]" style={{ minHeight: 'calc(100vh - 60px)' }}>
         {/* Left Panel */}
         <div className="hidden lg:block">
           <LeftPanel
@@ -143,7 +140,7 @@ export default function Home() {
           />
         </div>
 
-        {/* Center Canvas */}
+        {/* Center Canvas — takes remaining space */}
         <div className="flex-1 relative min-w-0">
           <MosaicCanvas
             pixels={pixels}
@@ -152,7 +149,7 @@ export default function Home() {
           />
         </div>
 
-        {/* Right Panel (conditional) */}
+        {/* Right Panel — slides in when pixel clicked */}
         {selectedClaimedPixel && (
           <div className="hidden lg:block">
             <RightPanel
@@ -165,7 +162,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Mobile: Left panel content below canvas */}
+      {/* Mobile: Left panel below canvas */}
       <div className="lg:hidden px-4 py-6">
         <LeftPanel
           claimedCount={claimedCount}
