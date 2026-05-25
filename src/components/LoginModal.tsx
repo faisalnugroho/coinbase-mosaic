@@ -34,18 +34,29 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
   // X OAuth via Supabase
   const handleXOAuth = async () => {
     setMode('loading');
+    setError('');
     try {
+      console.log('[X OAuth] Starting sign-in...');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/`,
+          scopes: 'users.read tweet.read',
         },
       });
-      if (error) throw error;
-      // Will redirect to X
-      if (data.url) window.location.href = data.url;
+      if (error) {
+        console.error('[X OAuth] Supabase error:', error);
+        throw error;
+      }
+      if (!data.url) {
+        throw new Error('No OAuth URL returned — is the Twitter provider enabled in Supabase?');
+      }
+      console.log('[X OAuth] Redirecting to:', data.url);
+      window.location.href = data.url;
     } catch (err: any) {
-      setError(err.message || 'OAuth failed');
+      console.error('[X OAuth] Failed:', err);
+      const msg = err.message || 'X sign-in failed';
+      setError(msg.includes('provider') ? 'X sign-in is not configured yet. Please use manual username for now.' : msg);
       setMode('choose');
     }
   };
@@ -151,19 +162,23 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
               </button>
             )}
 
-            {/* Manual X username */}
+            {/* Manual X username - more prominent as working fallback */}
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-[#1a1b3a]"></div>
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-[#0d0e24] px-4 text-white/30 text-sm">or</span>
+                <span className="bg-[#0d0e24] px-4 text-[#0052FF] text-sm font-medium">QUICK ENTRY</span>
               </div>
             </div>
 
+            <p className="text-white/40 text-xs text-center -mt-2">
+              No OAuth needed — just type your X handle
+            </p>
+
             <button
               onClick={() => setMode('manual')}
-              className="w-full flex items-center justify-center gap-3 bg-[#1a1b3a] text-white/80 font-medium py-3 px-4 rounded-xl hover:bg-[#252647] transition-colors border border-[#2a2b4a]"
+              className="w-full flex items-center justify-center gap-3 bg-[#0052FF] text-white font-medium py-3 px-4 rounded-xl hover:bg-[#0045d9] transition-colors"
             >
               Enter X Username Manually
             </button>
