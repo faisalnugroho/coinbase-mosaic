@@ -1,17 +1,16 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-// Premium Coinbase-inspired FAQ page
 
 const faqItems = [
-  { q: 'How do I claim a pixel?', a: 'Tap "Connect X" to sign in with your X account. Then drag and zoom the mosaic canvas to find an unclaimed pixel inside the Coinbase logo. Tap it, add a message, and confirm. Your profile photo appears on the canvas permanently.' },
-  { q: 'Can I change my pixel after claiming?', a: 'No. Every pixel claim is permanent and non-transferable. Once claimed, your pixel belongs to your X account forever.' },
-  { q: 'How many pixels can I claim?', a: 'One X account = One pixel. This keeps the mosaic truly community-driven — every person gets their own unique spot.' },
-  { q: 'Is this an official Coinbase product?', a: 'No. Coinbase Community Mosaic is a community-built tribute. It is not affiliated with Coinbase, Inc. Created by @Zkfync.' },
-  { q: 'What happens if I change my X profile?', a: 'Your pixel is linked to your X account at the time of claiming and does not update if you change your profile later. It is an immutable snapshot.' },
-  { q: 'How many pixels are there?', a: 'The Coinbase logo contains ~6,092 claimable pixels in a 100×100 grid forming the iconic "C" shape.' },
-  { q: 'Can I delete my pixel?', a: 'No. Once claimed, your pixel becomes part of the mosaic permanently. This immutability is what makes it a true community artifact.' },
-  { q: 'Is my data safe?', a: 'We only store your public X profile info (username, display name, profile photo URL) and your optional message. Authentication is handled securely through X OAuth.' },
+  { q: 'How do I claim a pixel?', a: 'Tap "Connect X" to sign in with your X account. Drag and zoom the mosaic canvas to find an unclaimed pixel inside the Coinbase logo. Tap it, optionally add a personal message, and confirm. Your profile photo appears on the canvas permanently.' },
+  { q: 'Can I change my pixel after claiming?', a: 'No. Every pixel claim is permanent and non-transferable. Once claimed, your pixel belongs to your X account for as long as the mosaic exists.' },
+  { q: 'How many pixels can I claim?', a: 'One X account = One pixel. This ensures the mosaic stays community-driven — every person gets exactly one unique spot in internet history.' },
+  { q: 'Is this an official Coinbase product?', a: 'No. Coinbase Community Mosaic is an independent community art project created by @Zkfync. It is not affiliated with or endorsed by Coinbase, Inc.' },
+  { q: 'What happens if I change my X profile?', a: 'Your pixel is an immutable snapshot of your profile at the time of claiming. It does not update if you change your X profile photo or username later.' },
+  { q: 'How many pixels exist?', a: 'The Coinbase logo contains approximately 6,092 claimable pixels in a 100×100 grid forming the iconic "C" shape.' },
+  { q: 'Can I delete my pixel?', a: 'No. Once claimed, your pixel becomes a permanent part of the mosaic. This immutability is what makes it a true community monument.' },
+  { q: 'Is my data safe?', a: 'We only store your public X profile information (username, display name, profile photo URL) and your optional message. Authentication is handled securely through X OAuth — we never see your credentials.' },
 ];
 
 export default function FAQPage() {
@@ -19,35 +18,43 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-[#080b1a] text-white">
-      <section className="pt-20 pb-16 px-4 max-w-lg mx-auto">
-        <h1 className="text-white text-[28px] font-bold tracking-[-0.02em] text-center mb-1">Frequently Asked Questions</h1>
-        <p className="text-white/35 text-xs text-center mb-10">Everything about Coinbase Community Mosaic</p>
+      <section className="pt-24 pb-16 px-4 max-w-lg mx-auto">
+        <h1 className="text-white text-[26px] font-extrabold tracking-[-0.025em] text-center mb-1">
+          Frequently Asked Questions
+        </h1>
+        <p className="text-white/30 text-xs text-center mb-10">Everything about the Coinbase Community Mosaic</p>
 
         <div className="space-y-2">
           {faqItems.map((item, i) => (
-            <div key={i} className="glass-card overflow-hidden">
+            <div key={i} className="glass-card overflow-hidden transition-all duration-300">
               <button
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.01] transition-colors"
               >
-                <span className="text-white text-[13px] font-medium pr-6">{item.q}</span>
-                <svg className={`w-4 h-4 text-white/25 flex-shrink-0 transition-transform duration-200 ${openIndex === i ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="text-white text-[13px] font-medium pr-6 tracking-tight">{item.q}</span>
+                <svg
+                  className={`w-4 h-4 text-white/20 flex-shrink-0 transition-transform duration-300 ${openIndex === i ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {openIndex === i && (
-                <div className="px-5 pb-4 animate-fade-in">
-                  <p className="text-white/40 text-[13px] leading-relaxed">{item.a}</p>
+                <div className="px-5 pb-4">
+                  <p className="text-white/35 text-[13px] leading-relaxed">{item.a}</p>
                 </div>
               )}
             </div>
           ))}
         </div>
+
+        <p className="text-white/08 text-[11px] mt-8 text-center italic leading-relaxed">
+          Community art project inspired by Coinbase.<br />Not affiliated with Coinbase, Inc.
+        </p>
       </section>
 
       <div className="text-center pb-16">
-        <Link href="/" className="text-white/25 hover:text-white/50 text-xs transition-colors">← Back to Mosaic</Link>
+        <Link href="/" className="text-white/20 hover:text-white/40 text-xs transition-colors">← Back to Mosaic</Link>
       </div>
     </div>
   );

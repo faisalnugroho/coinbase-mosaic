@@ -1,17 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
   --navy: #080b1a;
-  --navy-light: #0d1130;
+  --navy-light: #0c1028;
   --blue: #0052FF;
-  --blue-glow: rgba(0, 82, 255, 0.35);
-  --blue-soft: rgba(0, 82, 255, 0.12);
+  --blue-glow: rgba(0, 82, 255, 0.30);
+  --blue-soft: rgba(0, 82, 255, 0.10);
   --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.55);
-  --text-muted: rgba(255, 255, 255, 0.30);
-  --border: rgba(255, 255, 255, 0.06);
-  --glass-bg: rgba(255, 255, 255, 0.02);
-  --glass-border: rgba(255, 255, 255, 0.05);
+  --text-secondary: rgba(255, 255, 255, 0.50);
+  --text-muted: rgba(255, 255, 255, 0.28);
+  --border: rgba(255, 255, 255, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.015);
+  --glass-border: rgba(255, 255, 255, 0.04);
 }
 
 * { box-sizing: border-box; }
@@ -19,6 +20,7 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 html, body {
@@ -26,27 +28,30 @@ html, body {
   padding: 0;
   background: var(--navy);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none;
+  letter-spacing: -0.01em;
 }
 
-::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar { width: 2px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
 
-/* Animations */
+/* ======== ANIMATIONS ======== */
+
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(28px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-up {
-  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.animate-fade-up-delay-1 { animation-delay: 0.15s; }
-.animate-fade-up-delay-2 { animation-delay: 0.3s; }
-.animate-fade-up-delay-3 { animation-delay: 0.45s; }
+.animate-fade-up-d1 { animation-delay: 0.1s; }
+.animate-fade-up-d2 { animation-delay: 0.2s; }
+.animate-fade-up-d3 { animation-delay: 0.35s; }
+.animate-fade-up-d4 { animation-delay: 0.5s; }
+.animate-fade-up-d5 { animation-delay: 0.65s; }
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -55,67 +60,79 @@ html, body {
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out both;
 }
-.animate-fade-in-delay { animation-delay: 0.6s; }
 
 @keyframes breatheGlow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.02); }
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.03); }
 }
 .animate-breathe {
-  animation: breatheGlow 4s ease-in-out infinite;
+  animation: breatheGlow 5s ease-in-out infinite;
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
-  25% { transform: translateY(-8px) rotate(1deg); opacity: 0.5; }
-  50% { transform: translateY(-3px) rotate(-1deg); opacity: 0.35; }
-  75% { transform: translateY(-12px) rotate(0.5deg); opacity: 0.45; }
+  0%, 100% { transform: translateY(0px); opacity: 0.25; }
+  25% { transform: translateY(-10px); opacity: 0.45; }
+  50% { transform: translateY(-3px); opacity: 0.3; }
+  75% { transform: translateY(-14px); opacity: 0.4; }
 }
 .animate-float {
-  animation: float 8s ease-in-out infinite;
+  animation: float 9s ease-in-out infinite;
 }
-.animate-float-delay { animation-delay: 2s; }
-.animate-float-slow { animation-duration: 12s; }
 
-@keyframes countIn {
-  from { opacity: 0; transform: scale(0.8); }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
 }
-.animate-count { animation: countIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-@keyframes slideRight {
-  from { opacity: 0; transform: translateX(-16px); }
-  to { opacity: 1; transform: translateX(0); }
+.animate-scale-in {
+  animation: scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.animate-slide-right {
-  animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+/* Scroll reveal */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 canvas {
   touch-action: none;
 }
 
-/* Glass card base */
+/* ======== GLASS ======== */
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--glass-border);
-  border-radius: 20px;
+  border-radius: 22px;
 }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #ffffff 0%, #a0c4ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Soft blue glow */
+/* ======== GLOWS ======== */
 .glow-blue {
-  box-shadow: 0 0 40px var(--blue-glow), 0 0 80px rgba(0, 82, 255, 0.15);
+  box-shadow: 0 0 50px var(--blue-glow), 0 0 100px rgba(0, 82, 255, 0.10);
 }
 .glow-blue-sm {
-  box-shadow: 0 0 20px rgba(0, 82, 255, 0.25);
+  box-shadow: 0 0 20px rgba(0, 82, 255, 0.20);
+}
+.glow-blue-subtle {
+  box-shadow: 0 0 30px rgba(0, 82, 255, 0.08);
+}
+
+/* ======== NAVBAR FLOATING GLOW ======== */
+.navbar-glow {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03), 0 4px 30px rgba(0, 0, 0, 0.3);
 }
