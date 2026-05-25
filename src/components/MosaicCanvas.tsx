@@ -181,8 +181,8 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
   const screenToGrid = useCallback((cx: number, cy: number) => {
     const c = canvasRef.current; if (!c) return null;
     const r = c.getBoundingClientRect();
-    const gx = Math.floor((cx - r.left - r.width / 2) / tRef.current.scale + GRID / 2 - tRef.current.x / tRef.current.scale);
-    const gy = Math.floor((cy - r.top - r.height / 2) / tRef.current.scale + GRID / 2 - tRef.current.y / tRef.current.scale);
+    const gx = Math.floor(((cx - r.left - r.width / 2) / tRef.current.scale + GRID / 2 - tRef.current.x / tRef.current.scale) / CELL);
+    const gy = Math.floor(((cy - r.top - r.height / 2) / tRef.current.scale + GRID / 2 - tRef.current.y / tRef.current.scale) / CELL);
     if (gx >= 0 && gx < 100 && gy >= 0 && gy < 100) return { x: gx, y: gy };
     return null;
   }, []);
