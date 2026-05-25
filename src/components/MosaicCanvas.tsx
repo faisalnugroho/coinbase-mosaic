@@ -23,16 +23,25 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
   const [ripples, setRipples] = useState<{ id: number; gx: number; gy: number }[]>([]);
   const ripId = useRef(0);
 
+  // ── Refs (no re-render on change) ──
   const tRef = useRef({ x: 0, y: 0, scale: 1, target: 1 });
   const dragRef = useRef({ a: false, sx: 0, sy: 0, px: 0, py: 0 });
   const velRef = useRef({ x: 0, y: 0 });
-  const lastRef = useRef({ x: 0, y: 0, t: 0 });
+  const lastMouseRef = useRef({ x: 0, y: 0, t: 0 });
   const imgCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const hovRef = useRef<{ x: number; y: number } | null>(null);
   const afRef = useRef(0);
-  const tRefTime = useRef(0);
+  const animTime = useRef(0);
+  const lastFrameTime = useRef(0);
   const starsRef = useRef<{ x: number; y: number; vx: number; vy: number; a: number; s: number; life: number; maxLife: number }[]>([]);
   const claimGlows = useRef<{ gx: number; gy: number; start: number }[]>([]);
+  // Store pixels in a ref so draw() never recreates when pixels prop changes
+  const pixelsRef = useRef(pixels);
+  pixelsRef.current = pixels;
+  const onPixelClickRef = useRef(onPixelClick);
+  onPixelClickRef.current = onPixelClick;
+  // Throttle zoom display to avoid per-frame React renders
+  const lastDisplayedZoom = useRef(50);
 
   const cSet = useMemo(() => new Set(C_SHAPE_PIXELS.map(([x,y]) => `${x},${y}`)), []);
   const allPixels = useMemo(() => LOGO_PIXELS, []);
@@ -64,49 +73,96 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     return new Promise(r => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => { imgCache.current.set(url, i); r(i); }; i.onerror = () => r(i); i.src = url; });
   }, []);
 
-  const draw = useCallback((ts?: number) => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d'); if (!ctx) return;
-    if (ts !== undefined) tRefTime.current = ts;
-    const t = tRefTime.current * 0.001;
+  // ── Draw loop — reads from refs only, never recreates ──
+  const draw = useCallback((ts: number) => {
+    const c = canvasRef.current; if (!c) { afRef.current = requestAnimationFrame(draw); return; }
+    const ctx = c.getContext('2d'); if (!ctx) { afRef.current = requestAnimationFrame(draw); return; }
 
-    // Inertia
-    if (!dragRef.current.a) { velRef.current.x *= 0.88; velRef.current.y *= 0.88; if (Math.abs(velRef.current.x) > 0.03 || Math.abs(velRef.current.y) > 0.03) { tRef.current.x += velRef.current.x; tRef.current.y += velRef.current.y; } else velRef.current = { x: 0, y: 0 }; }
+    // Time delta for smooth physics
+    const dt = lastFrameTime.current ? Math.min((ts - lastFrameTime.current) / 1000, 0.1) : 0.016;
+    lastFrameTime.current = ts;
+    animTime.current = ts;
+    const t = ts * 0.001;
 
-    // Zoom
+    // ── Smooth inertia (time-based decay) ──
+    if (!dragRef.current.a) {
+      const decay = Math.pow(0.02, dt); // smooth exponential decay
+      velRef.current.x *= decay;
+      velRef.current.y *= decay;
+      if (Math.abs(velRef.current.x) > 0.3 || Math.abs(velRef.current.y) > 0.3) {
+        tRef.current.x += velRef.current.x * dt * 60;
+        tRef.current.y += velRef.current.y * dt * 60;
+      } else {
+        velRef.current = { x: 0, y: 0 };
+      }
+    }
+
+    // ── Snappy zoom interpolation ──
     const diff = tRef.current.target - tRef.current.scale;
-    if (Math.abs(diff) < 0.002) tRef.current.scale = tRef.current.target;
-    else tRef.current.scale += diff * 0.1;
-    setZoomPct(Math.round(tRef.current.scale * 50));
+    if (Math.abs(diff) < 0.001) {
+      tRef.current.scale = tRef.current.target;
+    } else {
+      // lerp with time-based factor for frame-rate independence
+      tRef.current.scale += diff * (1 - Math.pow(0.05, dt * 60));
+    }
+
+    // Throttled zoom display — only update React state when display changes
+    const displayZoom = Math.round(tRef.current.scale * 50);
+    if (displayZoom !== lastDisplayedZoom.current) {
+      lastDisplayedZoom.current = displayZoom;
+      setZoomPct(displayZoom);
+    }
 
     const { x: px, y: py, scale } = tRef.current;
-    const cont = containerRef.current; if (!cont) return;
+    const cont = containerRef.current; if (!cont) { afRef.current = requestAnimationFrame(draw); return; }
     const dpr = window.devicePixelRatio || 1;
-    c.width = cont.clientWidth * dpr; c.height = cont.clientHeight * dpr;
-    c.style.width = `${cont.clientWidth}px`; c.style.height = `${cont.clientHeight}px`;
-    ctx.scale(dpr, dpr);
-    const w = cont.clientWidth, h = cont.clientHeight;
+    const cw = cont.clientWidth, ch = cont.clientHeight;
 
-    ctx.clearRect(0, 0, w, h); ctx.save();
-    ctx.translate(w / 2, h / 2); ctx.scale(scale, scale);
+    // Only resize canvas if dimensions changed
+    if (c.width !== cw * dpr || c.height !== ch * dpr) {
+      c.width = cw * dpr;
+      c.height = ch * dpr;
+      c.style.width = `${cw}px`;
+      c.style.height = `${ch}px`;
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.save();
+
+    // View transform
+    ctx.translate(cw / 2, ch / 2);
+    ctx.scale(scale, scale);
     ctx.translate(-GRID / 2 + px / scale, -GRID / 2 + py / scale);
 
-    // Void
-    ctx.fillStyle = '#030611'; ctx.fillRect(0, 0, GRID, GRID);
+    // Void background — only draw visible area for perf
+    ctx.fillStyle = '#030611';
+    ctx.fillRect(
+      Math.max(0, -px / scale - 10),
+      Math.max(0, -py / scale - 10),
+      Math.min(GRID, cw / scale + 20),
+      Math.min(GRID, ch / scale + 20),
+    );
 
     // Stars
     for (const s of starsRef.current) {
-      s.life += 0.016; s.x += s.vx; s.y += s.vy;
+      s.life += dt;
+      s.x += s.vx * dt * 60;
+      s.y += s.vy * dt * 60;
       if (s.life > s.maxLife) { s.x = Math.random() * GRID; s.y = Math.random() * GRID; s.life = 0; s.maxLife = 3 + Math.random() * 8; }
       const fade = s.life < 0.5 ? s.life / 0.5 : s.life > s.maxLife - 0.5 ? (s.maxLife - s.life) / 0.5 : 1;
-      ctx.fillStyle = `rgba(180,200,255,${s.a * fade})`; ctx.fillRect(s.x, s.y, s.s, s.s);
+      ctx.fillStyle = `rgba(180,200,255,${s.a * fade})`;
+      ctx.fillRect(s.x, s.y, s.s, s.s);
     }
 
     // Orb glow
     const br = 0.08 + Math.sin(t * 0.4) * 0.05;
     const g = ctx.createRadialGradient(GRID / 2, GRID / 2, 100, GRID / 2, GRID / 2, 480);
-    g.addColorStop(0, `rgba(0,82,255,${br + 0.15})`); g.addColorStop(0.5, `rgba(0,60,200,${br * 0.5})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, GRID, GRID);
+    g.addColorStop(0, `rgba(0,82,255,${br + 0.15})`);
+    g.addColorStop(0.5, `rgba(0,60,200,${br * 0.5})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, GRID, GRID);
 
     // Scatter
     for (const [sx, sy] of SCATTER_PIXELS) {
@@ -115,7 +171,8 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       const d = Math.sqrt((sx - CX) ** 2 + (sy - CY) ** 2);
       const fi = Math.max(0, 1 - (d - R) / 10);
       const a = (0.05 + hx * 0.15 + Math.sin(t + sx * 0.1) * 0.03) * fi;
-      ctx.fillStyle = `rgba(0,82,255,${a})`; ctx.fillRect(sx * CELL + ox, sy * CELL, CELL - 1, CELL - 1);
+      ctx.fillStyle = `rgba(0,82,255,${a})`;
+      ctx.fillRect(sx * CELL + ox, sy * CELL, CELL - 1, CELL - 1);
     }
 
     // Claim glows
@@ -125,15 +182,21 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       const age = (now - cg.start) / 2000;
       const alpha = (1 - age) * 0.6;
       const radius = 3 + age * 15;
-      const glow = ctx.createRadialGradient(cg.gx * CELL + CELL / 2, cg.gy * CELL + CELL / 2, 0, cg.gx * CELL + CELL / 2, cg.gy * CELL + CELL / 2, radius * CELL);
-      glow.addColorStop(0, `rgba(0,180,255,${alpha})`); glow.addColorStop(1, 'rgba(0,0,0,0)');
+      const glow = ctx.createRadialGradient(
+        cg.gx * CELL + CELL / 2, cg.gy * CELL + CELL / 2, 0,
+        cg.gx * CELL + CELL / 2, cg.gy * CELL + CELL / 2, radius * CELL,
+      );
+      glow.addColorStop(0, `rgba(0,180,255,${alpha})`);
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = glow;
       ctx.fillRect(cg.gx * CELL - radius * CELL, cg.gy * CELL - radius * CELL, radius * CELL * 2, radius * CELL * 2);
     }
 
-    // Logo pixels
+    // Logo pixels — read from ref, never recreates draw
+    const pxPixels = pixelsRef.current;
     for (const [px, py] of allPixels) {
-      const key = `${px},${py}`; const pixel = pixels.get(key);
+      const key = `${px},${py}`;
+      const pixel = pxPixels.get(key);
       const rx = px * CELL, ry = py * CELL;
       const hov = hovRef.current?.x === px && hovRef.current?.y === py;
       const isC = cSet.has(key);
@@ -142,41 +205,58 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         const img = imgCache.current.get(pixel.profile_pic_url);
         if (img?.complete && img.naturalWidth > 0) {
           ctx.save();
-          ctx.beginPath(); ctx.roundRect(rx + 1, ry + 1, CELL - 2, CELL - 2, 1.5); ctx.clip();
+          ctx.beginPath();
+          ctx.roundRect(rx + 1, ry + 1, CELL - 2, CELL - 2, 1.5);
+          ctx.clip();
           ctx.drawImage(img, rx, ry, CELL, CELL);
-          if (hov) { ctx.strokeStyle = 'rgba(0,200,255,0.85)'; ctx.lineWidth = 2; ctx.shadowColor = 'rgba(0,200,255,0.5)'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0; }
+          if (hov) {
+            ctx.strokeStyle = 'rgba(0,200,255,0.85)';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = 'rgba(0,200,255,0.5)';
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
           ctx.restore();
         } else {
           ctx.fillStyle = isC ? '#1a3060' : '#0c1830';
           ctx.fillRect(rx + 1, ry + 1, CELL - 2, CELL - 2);
-          if (pixel.profile_pic_url) loadImg(pixel.profile_pic_url).then(() => draw());
+          if (pixel.profile_pic_url) loadImg(pixel.profile_pic_url).then(() => { /* will redraw naturally */ });
         }
       } else {
         if (isC) {
           const pulse = 0.5 + Math.sin(t * 2.2 + px * 0.2 + py * 0.15) * 0.3;
-          ctx.fillStyle = `rgb(${Math.floor(130+pulse*70)},${Math.floor(170+pulse*50)},${Math.floor(220+pulse*35)})`;
+          ctx.fillStyle = `rgb(${Math.floor(130 + pulse * 70)},${Math.floor(170 + pulse * 50)},${Math.floor(220 + pulse * 35)})`;
           ctx.fillRect(rx + 1, ry + 1, CELL - 2, CELL - 2);
-          ctx.fillStyle = `rgba(255,255,255,${pulse*0.35})`; ctx.fillRect(rx + 1, ry + 1, CELL - 2, 1);
+          ctx.fillStyle = `rgba(255,255,255,${pulse * 0.35})`;
+          ctx.fillRect(rx + 1, ry + 1, CELL - 2, 1);
         } else {
           const sub = 0.12 + Math.sin(t * 1.2 + px * 0.08) * 0.03;
-          ctx.fillStyle = `rgba(8,24,60,${0.55+sub})`; ctx.fillRect(rx + 1, ry + 1, CELL - 2, CELL - 2);
+          ctx.fillStyle = `rgba(8,24,60,${0.55 + sub})`;
+          ctx.fillRect(rx + 1, ry + 1, CELL - 2, CELL - 2);
         }
         if (hov) {
           ctx.fillStyle = isC ? 'rgba(255,255,255,0.65)' : 'rgba(0,150,255,0.35)';
           ctx.fillRect(rx - 1, ry - 1, CELL + 2, CELL + 2);
-          ctx.shadowColor = isC ? 'rgba(255,255,255,0.5)' : 'rgba(0,150,255,0.4)'; ctx.shadowBlur = isC ? 14 : 8;
-          ctx.fillRect(rx - 1, ry - 1, CELL + 2, CELL + 2); ctx.shadowBlur = 0;
+          ctx.shadowColor = isC ? 'rgba(255,255,255,0.5)' : 'rgba(0,150,255,0.4)';
+          ctx.shadowBlur = isC ? 14 : 8;
+          ctx.fillRect(rx - 1, ry - 1, CELL + 2, CELL + 2);
+          ctx.shadowBlur = 0;
         }
       }
     }
 
     // Outer ring
-    ctx.strokeStyle = 'rgba(0,130,255,0.25)'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(GRID / 2, GRID / 2, R * CELL, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,130,255,0.25)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(GRID / 2, GRID / 2, R * CELL, 0, Math.PI * 2);
+    ctx.stroke();
 
-    ctx.restore(); setLoading(false);
+    ctx.restore();
+    setLoading(false);
     afRef.current = requestAnimationFrame(draw);
-  }, [pixels, loadImg, cSet, allPixels]);
+  }, [loadImg, cSet, allPixels]); // NOTE: pixels NOT in deps — read from ref
 
   const screenToGrid = useCallback((cx: number, cy: number) => {
     const c = canvasRef.current; if (!c) return null;
@@ -195,7 +275,6 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     setTimeout(() => setRipples(p => p.filter(r => r.id !== id)), 700);
   };
 
-  // Render ripple div
   const getRippleScreenPos = (gx: number, gy: number) => {
     const cont = containerRef.current; if (!cont) return { x: 0, y: 0 };
     const cw = cont.clientWidth, ch = cont.clientHeight;
@@ -205,19 +284,35 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     return { x: sx, y: sy };
   };
 
+  // ── Event handlers (one-time setup, stable) ──
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
 
-    // Wheel zoom
-    const handleWheel = (e: WheelEvent) => { e.preventDefault(); setZoom(tRef.current.target * (e.deltaY > 0 ? 0.88 : 1.12)); };
+    // Wheel zoom — smooth with accumulated delta
+    let wheelAccum = 0;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      wheelAccum += e.deltaY;
+      // Apply zoom when accumulated delta crosses threshold
+      if (Math.abs(wheelAccum) > 30) {
+        const factor = wheelAccum > 0 ? 0.85 : 1.18;
+        setZoom(tRef.current.target * factor);
+        wheelAccum = 0;
+      }
+      // Also handle single large deltas immediately (trackpad pinch)
+      if (Math.abs(e.deltaY) > 50) {
+        setZoom(tRef.current.target * (e.deltaY > 0 ? 0.92 : 1.09));
+        wheelAccum = 0;
+      }
+    };
 
-    // ── Mouse: window-level mousemove/mouseup so drags survive leaving the canvas ──
+    // ── Mouse: window-level for smooth off-canvas drag ──
     let mouseDownTime = 0;
     let mouseMaxDist = 0;
     const handleMouseDown = (e: MouseEvent) => {
       velRef.current = { x: 0, y: 0 };
       dragRef.current = { a: true, sx: e.clientX, sy: e.clientY, px: tRef.current.x, py: tRef.current.y };
-      lastRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+      lastMouseRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
       mouseDownTime = performance.now();
       mouseMaxDist = 0;
       window.addEventListener('mousemove', handleMouseMove);
@@ -227,17 +322,21 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       const pos = screenToGrid(e.clientX, e.clientY);
       hovRef.current = (pos && isLogoPixel(pos.x, pos.y)) ? { x: pos.x, y: pos.y } : null;
       if (pos && isLogoPixel(pos.x, pos.y)) {
-        const pix = pixels.get(`${pos.x},${pos.y}`);
+        const pix = pixelsRef.current.get(`${pos.x},${pos.y}`);
         if (pix) setTooltip({ pixel: pix, sx: e.clientX, sy: e.clientY });
         else setTooltip(null);
       } else { setTooltip(null); hovRef.current = null; }
       if (!dragRef.current.a) return;
-      const n = performance.now();
-      if (n - lastRef.current.t > 8) {
-        velRef.current = { x: e.clientX - lastRef.current.x, y: e.clientY - lastRef.current.y };
-        lastRef.current = { x: e.clientX, y: e.clientY, t: n };
+      const now = performance.now();
+      const dt = now - lastMouseRef.current.t;
+      // Velocity: px/frame (60fps-equivalent) for natural-feeling inertia
+      if (dt > 4) {
+        velRef.current = {
+          x: (e.clientX - lastMouseRef.current.x) / (dt / 16.67),
+          y: (e.clientY - lastMouseRef.current.y) / (dt / 16.67),
+        };
+        lastMouseRef.current = { x: e.clientX, y: e.clientY, t: now };
       }
-      // Track maximum distance from drag origin
       const dist = Math.sqrt((e.clientX - dragRef.current.sx) ** 2 + (e.clientY - dragRef.current.sy) ** 2);
       if (dist > mouseMaxDist) mouseMaxDist = dist;
       tRef.current.x = dragRef.current.px + (e.clientX - dragRef.current.sx);
@@ -248,20 +347,18 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       window.removeEventListener('mouseup', handleMouseUp);
       if (!dragRef.current.a) return;
       dragRef.current.a = false;
-      // Click = quick press (< 300ms) AND small movement (< 16px max).
-      // Slow exploration (long hold) never accidentally clicks, even without moving.
       const duration = performance.now() - mouseDownTime;
       if (duration < 300 && mouseMaxDist < 16) {
         velRef.current = { x: 0, y: 0 };
         const pos = screenToGrid(e.clientX, e.clientY);
         if (pos && isLogoPixel(pos.x, pos.y)) {
           addRipple(pos.x, pos.y);
-          onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
+          onPixelClickRef.current(pos.x, pos.y, !!pixelsRef.current.get(`${pos.x},${pos.y}`));
         }
       }
     };
 
-    // ── Touch: single-finger pan + two-finger pinch zoom ──
+    // ── Touch: single-finger pan + two-finger pinch ──
     let touchId: number | null = null;
     let touchStartX = 0, touchStartY = 0;
     let touchStartPanX = 0, touchStartPanY = 0;
@@ -269,10 +366,8 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
     let touchStartTime = 0;
     let touchMaxDist = 0;
     let pinchDist = 0;
-    let isTouching = false;
 
     const handleTouchStart = (e: TouchEvent) => {
-      isTouching = true;
       if (e.touches.length === 1) {
         const t = e.touches[0];
         touchId = t.identifier;
@@ -285,7 +380,6 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         dragRef.current.a = true;
         velRef.current = { x: 0, y: 0 };
       } else if (e.touches.length === 2) {
-        // Cancel any single-finger drag when second finger joins
         touchId = null;
         dragRef.current.a = false;
         const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -308,7 +402,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         }
       } else if (e.touches.length === 2) {
         e.preventDefault();
-        touchId = null; // Cancel single-finger if it was lingering
+        touchId = null;
         dragRef.current.a = false;
         const dx = e.touches[1].clientX - e.touches[0].clientX;
         const dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -320,18 +414,14 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
-        // All fingers lifted
-        isTouching = false;
         if (dragRef.current.a && touchId !== null) {
           dragRef.current.a = false;
-          // Tap = quick press (< 350ms) AND small movement (< 24px max).
-          // Slow exploration never accidentally taps.
           const duration = performance.now() - touchStartTime;
           if (duration < 350 && touchMaxDist < 24) {
             const pos = screenToGrid(lastTouchX, lastTouchY);
             if (pos && isLogoPixel(pos.x, pos.y)) {
               addRipple(pos.x, pos.y);
-              onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
+              onPixelClickRef.current(pos.x, pos.y, !!pixelsRef.current.get(`${pos.x},${pos.y}`));
             }
           }
         }
@@ -340,7 +430,7 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
         touchMaxDist = 0;
         pinchDist = 0;
       } else if (e.touches.length === 1) {
-        // Transitioned from 2→1 finger — start a new single-finger drag
+        // 2→1 finger transition
         const t = e.touches[0];
         touchId = t.identifier;
         touchStartX = lastTouchX = t.clientX;
@@ -357,11 +447,11 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
 
     c.addEventListener('wheel', handleWheel, { passive: false });
     c.addEventListener('mousedown', handleMouseDown);
-    // mousemove/mouseup are added on window inside handleMouseDown
     c.addEventListener('touchstart', handleTouchStart, { passive: false });
     c.addEventListener('touchmove', handleTouchMove, { passive: false });
     c.addEventListener('touchend', handleTouchEnd);
     c.addEventListener('touchcancel', handleTouchEnd);
+    lastFrameTime.current = 0;
     afRef.current = requestAnimationFrame(draw);
 
     return () => {
@@ -375,7 +465,10 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
       c.removeEventListener('touchcancel', handleTouchEnd);
       cancelAnimationFrame(afRef.current);
     };
-  }, [draw, screenToGrid, pixels, onPixelClick, setZoom]);
+    // draw is stable (depends only on loadImg, cSet, allPixels — all stable after mount)
+    // screenToGrid and setZoom are stable ([] deps)
+    // pixels and onPixelClick are NOT in deps — read from refs
+  }, [draw, screenToGrid, setZoom]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-2xl">
