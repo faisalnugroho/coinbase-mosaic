@@ -207,29 +207,156 @@ export default function MosaicCanvas({ pixels, onPixelClick, recentClaims = [] }
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
-    const w = (e: WheelEvent) => { e.preventDefault(); setZoom(tRef.current.target * (e.deltaY > 0 ? 0.88 : 1.12)); };
-    const d = (e: MouseEvent) => { velRef.current = { x: 0, y: 0 }; dragRef.current = { a: true, sx: e.clientX, sy: e.clientY, px: tRef.current.x, py: tRef.current.y }; lastRef.current = { x: e.clientX, y: e.clientY, t: performance.now() }; };
-    const m = (e: MouseEvent) => {
+
+    // Wheel zoom
+    const handleWheel = (e: WheelEvent) => { e.preventDefault(); setZoom(tRef.current.target * (e.deltaY > 0 ? 0.88 : 1.12)); };
+
+    // ── Mouse: window-level mousemove/mouseup so drags survive leaving the canvas ──
+    const handleMouseDown = (e: MouseEvent) => {
+      velRef.current = { x: 0, y: 0 };
+      dragRef.current = { a: true, sx: e.clientX, sy: e.clientY, px: tRef.current.x, py: tRef.current.y };
+      lastRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    };
+    const handleMouseMove = (e: MouseEvent) => {
       const pos = screenToGrid(e.clientX, e.clientY);
       hovRef.current = (pos && isLogoPixel(pos.x, pos.y)) ? { x: pos.x, y: pos.y } : null;
       if (pos && isLogoPixel(pos.x, pos.y)) {
         const pix = pixels.get(`${pos.x},${pos.y}`);
         if (pix) setTooltip({ pixel: pix, sx: e.clientX, sy: e.clientY });
         else setTooltip(null);
-      } else setTooltip(null);
+      } else { setTooltip(null); hovRef.current = null; }
       if (!dragRef.current.a) return;
-      const n = performance.now(); if (n - lastRef.current.t > 8) { velRef.current = { x: e.clientX - lastRef.current.x, y: e.clientY - lastRef.current.y }; lastRef.current = { x: e.clientX, y: e.clientY, t: n }; }
-      tRef.current.x = dragRef.current.px + (e.clientX - dragRef.current.sx); tRef.current.y = dragRef.current.py + (e.clientY - dragRef.current.sy);
+      const n = performance.now();
+      if (n - lastRef.current.t > 8) {
+        velRef.current = { x: e.clientX - lastRef.current.x, y: e.clientY - lastRef.current.y };
+        lastRef.current = { x: e.clientX, y: e.clientY, t: n };
+      }
+      tRef.current.x = dragRef.current.px + (e.clientX - dragRef.current.sx);
+      tRef.current.y = dragRef.current.py + (e.clientY - dragRef.current.sy);
     };
-    const u = (e: MouseEvent) => { if (!dragRef.current.a) return; const dx = Math.abs(e.clientX - dragRef.current.sx), dy = Math.abs(e.clientY - dragRef.current.sy); dragRef.current.a = false; if (dx < 4 && dy < 4) { velRef.current = { x: 0, y: 0 }; const pos = screenToGrid(e.clientX, e.clientY); if (pos && isLogoPixel(pos.x, pos.y)) { addRipple(pos.x, pos.y); onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`)); } } };
-    let td = 0;
-    const ts = (e: TouchEvent) => { if (e.touches.length === 2) { const dx = e.touches[1].clientX - e.touches[0].clientX, dy = e.touches[1].clientY - e.touches[0].clientY; td = Math.sqrt(dx * dx + dy * dy); } };
-    const tm = (e: TouchEvent) => { if (e.touches.length === 2) { e.preventDefault(); const dx = e.touches[1].clientX - e.touches[0].clientX, dy = e.touches[1].clientY - e.touches[0].clientY; const nd = Math.sqrt(dx * dx + dy * dy); if (td > 0) setZoom(tRef.current.target * (nd / td)); td = nd; } };
-    c.addEventListener('wheel', w, { passive: false }); c.addEventListener('mousedown', d); c.addEventListener('mousemove', m); c.addEventListener('mouseup', u);
-    c.addEventListener('mouseleave', () => { dragRef.current.a = false; hovRef.current = null; setTooltip(null); });
-    c.addEventListener('touchstart', ts, { passive: true }); c.addEventListener('touchmove', tm, { passive: false });
+    const handleMouseUp = (e: MouseEvent) => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (!dragRef.current.a) return;
+      const dx = Math.abs(e.clientX - dragRef.current.sx);
+      const dy = Math.abs(e.clientY - dragRef.current.sy);
+      dragRef.current.a = false;
+      if (dx < 4 && dy < 4) {
+        velRef.current = { x: 0, y: 0 };
+        const pos = screenToGrid(e.clientX, e.clientY);
+        if (pos && isLogoPixel(pos.x, pos.y)) {
+          addRipple(pos.x, pos.y);
+          onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
+        }
+      }
+    };
+
+    // ── Touch: single-finger pan + two-finger pinch zoom ──
+    let touchId: number | null = null;
+    let touchStartX = 0, touchStartY = 0;
+    let touchStartPanX = 0, touchStartPanY = 0;
+    let lastTouchX = 0, lastTouchY = 0;
+    let pinchDist = 0;
+    let isTouching = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      isTouching = true;
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        touchId = t.identifier;
+        touchStartX = lastTouchX = t.clientX;
+        touchStartY = lastTouchY = t.clientY;
+        touchStartPanX = tRef.current.x;
+        touchStartPanY = tRef.current.y;
+        dragRef.current.a = true;
+        velRef.current = { x: 0, y: 0 };
+      } else if (e.touches.length === 2) {
+        // Cancel any single-finger drag when second finger joins
+        touchId = null;
+        dragRef.current.a = false;
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        pinchDist = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1 && touchId !== null && dragRef.current.a) {
+        e.preventDefault();
+        const t = e.touches[0];
+        if (t.identifier === touchId) {
+          lastTouchX = t.clientX;
+          lastTouchY = t.clientY;
+          tRef.current.x = touchStartPanX + (t.clientX - touchStartX);
+          tRef.current.y = touchStartPanY + (t.clientY - touchStartY);
+        }
+      } else if (e.touches.length === 2) {
+        e.preventDefault();
+        touchId = null; // Cancel single-finger if it was lingering
+        dragRef.current.a = false;
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        const nd = Math.sqrt(dx * dx + dy * dy);
+        if (pinchDist > 0) setZoom(tRef.current.target * (nd / pinchDist));
+        pinchDist = nd;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        // All fingers lifted
+        isTouching = false;
+        if (dragRef.current.a && touchId !== null) {
+          const dx = Math.abs(lastTouchX - touchStartX);
+          const dy = Math.abs(lastTouchY - touchStartY);
+          dragRef.current.a = false;
+          if (dx < 10 && dy < 10) {
+            // It was a tap — handle as click
+            const pos = screenToGrid(lastTouchX, lastTouchY);
+            if (pos && isLogoPixel(pos.x, pos.y)) {
+              addRipple(pos.x, pos.y);
+              onPixelClick(pos.x, pos.y, !!pixels.get(`${pos.x},${pos.y}`));
+            }
+          }
+        }
+        touchId = null;
+        pinchDist = 0;
+      } else if (e.touches.length === 1) {
+        // Transitioned from 2→1 finger — start a new single-finger drag
+        const t = e.touches[0];
+        touchId = t.identifier;
+        touchStartX = lastTouchX = t.clientX;
+        touchStartY = lastTouchY = t.clientY;
+        touchStartPanX = tRef.current.x;
+        touchStartPanY = tRef.current.y;
+        dragRef.current.a = true;
+        velRef.current = { x: 0, y: 0 };
+        pinchDist = 0;
+      }
+    };
+
+    c.addEventListener('wheel', handleWheel, { passive: false });
+    c.addEventListener('mousedown', handleMouseDown);
+    // mousemove/mouseup are added on window inside handleMouseDown
+    c.addEventListener('touchstart', handleTouchStart, { passive: false });
+    c.addEventListener('touchmove', handleTouchMove, { passive: false });
+    c.addEventListener('touchend', handleTouchEnd);
+    c.addEventListener('touchcancel', handleTouchEnd);
     afRef.current = requestAnimationFrame(draw);
-    return () => { c.removeEventListener('wheel', w); c.removeEventListener('mousedown', d); c.removeEventListener('mousemove', m); c.removeEventListener('mouseup', u); c.removeEventListener('touchstart', ts); c.removeEventListener('touchmove', tm); cancelAnimationFrame(afRef.current); };
+
+    return () => {
+      c.removeEventListener('wheel', handleWheel);
+      c.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      c.removeEventListener('touchstart', handleTouchStart);
+      c.removeEventListener('touchmove', handleTouchMove);
+      c.removeEventListener('touchend', handleTouchEnd);
+      c.removeEventListener('touchcancel', handleTouchEnd);
+      cancelAnimationFrame(afRef.current);
+    };
   }, [draw, screenToGrid, pixels, onPixelClick, setZoom]);
 
   return (
