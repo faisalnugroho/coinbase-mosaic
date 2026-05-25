@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Coinbase Mosaic",
+    "iconUrl": "/icon.png",
+    "homeUrl": "/",
+    "imageUrl": "/og-image.png",
+    "buttonTitle": "🟦 Claim Pixel",
+    "splashImageUrl": "/icon.png",
+    "splashBackgroundColor": "#0052FF",
+    "requiredCapabilities": []
+  }
+}
