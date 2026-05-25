@@ -166,7 +166,7 @@ export default function Home() {
 
         {/* Canvas container */}
         <div className="relative glass overflow-hidden border border-[#0052FF]/10" style={{ height: 'min(460px, 70vw)' }}>
-          <MosaicCanvas pixels={pixels} onPixelClick={handlePixelClick} onPixelHover={() => {}} />
+          <MosaicCanvas pixels={pixels} onPixelClick={handlePixelClick} claimedCount={claimedCount} />
         </div>
 
         {/* CTA bar */}
